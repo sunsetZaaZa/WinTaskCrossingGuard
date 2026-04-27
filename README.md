@@ -77,15 +77,12 @@ You can change the default for string entries or object entries that omit `recur
 
 ## Core identity object
 
-The suite uses a lightweight identity object. Rollback manifests extend it with the original state and suite-disable marker so tasks that were already disabled stay disabled:
+The suite uses a lightweight identity object:
 
 ```powershell
 [pscustomobject]@{
   TaskPath = "\MyCompany\"
   TaskName = "NightlyBackup"
-  OriginalState = "Ready"
-  WasOriginallyEnabled = $true
-  DisabledBySuite = $true
 }
 ```
 
@@ -115,7 +112,7 @@ $tasks | Format-Table TaskPath, TaskName, NextRunTime
   -Start "22:00" `
   -End "06:00" `
   -SelectionPath .\task-selection.example.json `
-  -ManifestPath .\rollback-manifest.json
+  -IdentityOutputPath .\matched-task-identities.json
 ```
 
 ## Return identities while disabling
@@ -267,7 +264,7 @@ Disable-WtcgTasksInWindowAndScheduleReenable `
   -End '06:00' `
   -ReenableAt ([datetime]'2026-04-27T06:30:00') `
   -SelectionPath .\task-selection.example.json `
-  -ManifestPath .\rollback-manifest.json `
+  -IdentityOutputPath .\rollback-manifest.json `
   -ReenableTaskPath '\WinTaskCrossingGuard\' `
   -ReenableTaskName 'ReenableDisabledTasks'
 ```

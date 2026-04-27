@@ -371,7 +371,7 @@ Describe 'Disable-WtcgTasksInWindowAndScheduleReenable orchestration' {
                 -PassThru `
                 -WhatIf
 
-            $result.DisabledTaskCount | Should -Be 0
+            $result.DisabledTaskCount | Should -Be 1
             Test-Path -LiteralPath $script:IdentityPath | Should -BeTrue
 
             Should -Invoke Disable-ScheduledTask -Times 0

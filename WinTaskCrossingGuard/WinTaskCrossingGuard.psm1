@@ -193,7 +193,7 @@ function New-WtcgTaskIdentity {
 
         [Parameter()]
         [AllowNull()]
-        [datetime] $NextRunTime,
+        [object] $NextRunTime,
 
         [Parameter()]
         [AllowNull()]
@@ -205,19 +205,19 @@ function New-WtcgTaskIdentity {
 
         [Parameter()]
         [AllowNull()]
-        [bool] $WasOriginallyEnabled = $true,
+        [object] $WasOriginallyEnabled = $null,
 
         [Parameter()]
         [AllowNull()]
-        [bool] $DisabledBySuite = $false,
+        [object] $DisabledBySuite = $false,
 
         [Parameter()]
         [AllowNull()]
-        [datetime] $DisabledAt,
+        [object] $DisabledAt,
 
         [Parameter()]
         [AllowNull()]
-        [datetime] $LastRunTime,
+        [object] $LastRunTime,
 
         [Parameter()]
         [AllowNull()]
@@ -234,23 +234,31 @@ function New-WtcgTaskIdentity {
 
     $normalizedPath = Normalize-WtcgTaskPath -TaskPath $TaskPath
     $effectiveOriginalState = if ([string]::IsNullOrWhiteSpace($OriginalState)) { $State } else { $OriginalState }
-    $effectiveWasOriginallyEnabled = if ([string]::IsNullOrWhiteSpace($effectiveOriginalState)) { $WasOriginallyEnabled } else { $effectiveOriginalState -ne 'Disabled' }
+    $effectiveWasOriginallyEnabled = if ($null -ne $WasOriginallyEnabled) {
+        [bool]$WasOriginallyEnabled
+    }
+    elseif ([string]::IsNullOrWhiteSpace($effectiveOriginalState)) {
+        $true
+    }
+    else {
+        $effectiveOriginalState -ne 'Disabled'
+    }
 
     [pscustomObject]@{
-        PSTypeName              = 'WinTaskCrossingGuard.TaskIdentity'
-        TaskPath                = $normalizedPath
-        TaskName                = $TaskName
-        FullName                = "$normalizedPath$TaskName"
-        NextRunTime             = $NextRunTime
-        State                   = $State
-        OriginalState           = $effectiveOriginalState
-        WasOriginallyEnabled    = [bool]$effectiveWasOriginallyEnabled
-        DisabledBySuite         = [bool]$DisabledBySuite
-        DisabledAt              = $DisabledAt
-        LastRunTime             = $LastRunTime
-        LastTaskResult          = $LastTaskResult
-        Author                  = $Author
-        Description             = $Description
+        PSTypeName           = 'WinTaskCrossingGuard.TaskIdentity'
+        TaskPath             = $normalizedPath
+        TaskName             = $TaskName
+        FullName             = "$normalizedPath$TaskName"
+        NextRunTime          = $NextRunTime
+        State                = $State
+        OriginalState        = $effectiveOriginalState
+        WasOriginallyEnabled = [bool]$effectiveWasOriginallyEnabled
+        DisabledBySuite      = [bool]$DisabledBySuite
+        DisabledAt           = $DisabledAt
+        LastRunTime          = $LastRunTime
+        LastTaskResult       = $LastTaskResult
+        Author               = $Author
+        Description          = $Description
     }
 }
 
@@ -277,8 +285,13 @@ function Import-WtcgTaskIdentity {
             -NextRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'NextRunTime') `
             -State (Get-WtcgObjectPropertyValue -InputObject $item -Name 'State') `
             -OriginalState (Get-WtcgObjectPropertyValue -InputObject $item -Name 'OriginalState') `
-            -WasOriginallyEnabled ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'WasOriginallyEnabled' -DefaultValue $true)) `
-            -DisabledBySuite ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledBySuite' -DefaultValue $false))
+            -WasOriginallyEnabled (Get-WtcgObjectPropertyValue -InputObject $item -Name 'WasOriginallyEnabled') `
+            -DisabledBySuite (Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledBySuite' -DefaultValue $false) `
+            -DisabledAt (Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledAt') `
+            -LastRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastRunTime') `
+            -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastTaskResult') `
+            -Author (Get-WtcgObjectPropertyValue -InputObject $item -Name 'Author') `
+            -Description (Get-WtcgObjectPropertyValue -InputObject $item -Name 'Description')
     }
 }
 
@@ -309,9 +322,13 @@ function Export-WtcgTaskIdentity {
                 NextRunTime          = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'NextRunTime'
                 State                = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'State'
                 OriginalState        = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'OriginalState'
-                WasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $identity -Name 'WasOriginallyEnabled' -DefaultValue $true)
-                DisabledBySuite      = [bool](Get-WtcgObjectPropertyValue -InputObject $identity -Name 'DisabledBySuite' -DefaultValue $false)
+                WasOriginallyEnabled = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'WasOriginallyEnabled'
+                DisabledBySuite      = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'DisabledBySuite' -DefaultValue $false
                 DisabledAt           = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'DisabledAt'
+                LastRunTime          = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastRunTime'
+                LastTaskResult       = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastTaskResult'
+                Author               = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'Author'
+                Description          = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'Description'
             })
         }
     }
@@ -793,8 +810,8 @@ function Find-WtcgTaskInWindow {
                     -WasOriginallyEnabled ([string]$task.State -ne 'Disabled') `
                     -LastRunTime $info.LastRunTime `
                     -LastTaskResult $info.LastTaskResult `
-                    -Author $task.Author `
-                    -Description $task.Description
+                    -Author (Get-WtcgObjectPropertyValue -InputObject $task -Name 'Author') `
+                    -Description (Get-WtcgObjectPropertyValue -InputObject $task -Name 'Description')
             }
             else {
                 [pscustomobject]@{
@@ -809,8 +826,8 @@ function Find-WtcgTaskInWindow {
                     NextRunTime          = $info.NextRunTime
                     LastRunTime          = $info.LastRunTime
                     LastTaskResult       = $info.LastTaskResult
-                    Author               = $task.Author
-                    Description          = $task.Description
+                    Author               = Get-WtcgObjectPropertyValue -InputObject $task -Name 'Author'
+                    Description          = Get-WtcgObjectPropertyValue -InputObject $task -Name 'Description'
                 }
             }
         }
@@ -852,7 +869,7 @@ function Disable-WtcgTaskIdentity {
                     -DisabledBySuite $true `
                     -DisabledAt (Get-Date) `
                     -LastRunTime (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastRunTime') `
-                    -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastTaskResult' -DefaultValue 0) `
+                    -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastTaskResult') `
                     -Author (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'Author') `
                     -Description (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'Description')
             }
@@ -943,8 +960,8 @@ function Save-WtcgManifest {
                 FullName             = "$normalizedPath$($entry.TaskName)"
                 State                = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'State'
                 OriginalState        = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'OriginalState' -DefaultValue (Get-WtcgObjectPropertyValue -InputObject $entry -Name 'State')
-                WasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'WasOriginallyEnabled' -DefaultValue $true)
-                DisabledBySuite      = [bool](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'DisabledBySuite' -DefaultValue $false)
+                WasOriginallyEnabled = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'WasOriginallyEnabled'
+                DisabledBySuite      = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'DisabledBySuite' -DefaultValue $false
                 DisabledAt           = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'DisabledAt'
                 NextRunTime          = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'NextRunTime'
                 LastRunTime          = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'LastRunTime'
@@ -973,7 +990,7 @@ function Save-WtcgManifest {
 
         $manifest |
             ConvertTo-Json -Depth 10 |
-            Set-Content -Path $Path -Encoding utf8
+            Set-Content -Path $Path -Encoding utf8 -WhatIf:$false
 
         Get-Item -Path $Path
     }
@@ -2642,7 +2659,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     $result = [pscustomobject]@{
         WindowStart           = $window.Start
         WindowEnd             = $window.End
-        DisabledTaskCount     = $disabledTaskIdentities.Count
+        DisabledTaskCount     = $taskIdentities.Count
         IdentityOutputPath    = $identityFile.FullName
         XmlLogPath            = $xmlLogFile.FullName
         ReenableAt            = $ReenableAt
