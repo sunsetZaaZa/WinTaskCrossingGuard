@@ -1,0 +1,30 @@
+{
+  "$schema": "../task-selection.schema.json",
+  "includeFolders": [
+    {
+      "taskPath": "\\MyCompany\\",
+      "recurse": true
+    }
+  ],
+  "excludeFolders": [
+    {
+      "taskPath": "\\MyCompany\\NeverDisable\\",
+      "recurse": true
+    }
+  ],
+  "mail": {
+    "enabled": true,
+    "smtpServer": "mail.internal.example.com",
+    "port": 25,
+    "from": "wintaskcrossingguard@example.com",
+    "to": [
+      "ops@example.com"
+    ],
+    "cc": [
+      "audit@example.com"
+    ],
+    "useSsl": false,
+    "attachXmlLog": true,
+    "attachIdentityFile": true
+  }
+}

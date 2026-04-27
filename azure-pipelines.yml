@@ -1,0 +1,67 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+
+pool:
+  vmImage: windows-latest
+
+stages:
+  - stage: Test
+    displayName: Test
+    jobs:
+      - job: Pester
+        displayName: Run Pester tests
+        steps:
+          - checkout: self
+
+          - task: PowerShell@2
+            displayName: Show PowerShell version
+            inputs:
+              pwsh: true
+              targetType: inline
+              script: |
+                $PSVersionTable
+
+          - task: PowerShell@2
+            displayName: Install or update project Pester version
+            inputs:
+              pwsh: true
+              targetType: inline
+              script: |
+                ./Install-ProjectPester.ps1 `
+                  -RequiredVersion 5.0.0 `
+                  -Scope CurrentUser `
+                  -Force `
+                  -SkipPublisherCheck
+
+          - task: PowerShell@2
+            displayName: Run Pester tests with coverage
+            inputs:
+              pwsh: true
+              targetType: inline
+              script: |
+                ./Invoke-WinTaskCrossingGuardTests.ps1 -MinimumCoveragePercent 90
+
+          - task: PublishTestResults@2
+            displayName: Publish Pester test results
+            condition: always()
+            inputs:
+              testResultsFormat: NUnit
+              testResultsFiles: TestResults/pester-results.xml
+              failTaskOnFailedTests: true
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish test artifacts
+            condition: always()
+            inputs:
+              targetPath: TestResults
+              artifact: WinTaskCrossingGuard-TestResults
+              publishLocation: pipeline

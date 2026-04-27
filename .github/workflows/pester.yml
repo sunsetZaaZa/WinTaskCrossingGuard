@@ -1,0 +1,48 @@
+name: Pester
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Pester tests
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show PowerShell version
+        run: |
+          $PSVersionTable
+
+      - name: Install or update project Pester version
+        run: |
+          ./Install-ProjectPester.ps1 `
+            -RequiredVersion 5.0.0 `
+            -Scope CurrentUser `
+            -Force `
+            -SkipPublisherCheck
+
+      - name: Run Pester tests with coverage
+        run: |
+          ./Invoke-WinTaskCrossingGuardTests.ps1 -MinimumCoveragePercent 90
+
+      - name: Upload Pester results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pester-results
+          path: |
+            TestResults/pester-results.xml
+            TestResults/coverage.xml
+          if-no-files-found: error

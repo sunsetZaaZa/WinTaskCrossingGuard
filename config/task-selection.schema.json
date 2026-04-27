@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WinTaskCrossingGuard task selection",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "defaultIncludeFolderRecurse": {
+      "type": "boolean",
+      "description": "Default recurse value for includeFolders entries that are strings or omit recurse."
+    },
+    "defaultExcludeFolderRecurse": {
+      "type": "boolean",
+      "description": "Default recurse value for excludeFolders entries that are strings or omit recurse."
+    },
+    "includeFolders": {
+      "type": "array",
+      "description": "Task Scheduler folders to include. Each entry may be a legacy string or an object with taskPath and recurse.",
+      "items": {
+        "$ref": "#/$defs/folderSpec"
+      }
+    },
+    "excludeFolders": {
+      "type": "array",
+      "description": "Task Scheduler folders to exclude. Each entry may be a legacy string or an object with taskPath and recurse. Exclusion wins over inclusion.",
+      "items": {
+        "$ref": "#/$defs/folderSpec"
+      }
+    },
+    "includeTasks": {
+      "type": "array",
+      "description": "Specific task names within folders to include. taskName supports PowerShell wildcard matching.",
+      "items": {
+        "$ref": "#/$defs/taskSpec"
+      }
+    },
+    "excludeTasks": {
+      "type": "array",
+      "description": "Specific task names within folders to exclude. taskName supports PowerShell wildcard matching. Exclusion wins over inclusion.",
+      "items": {
+        "$ref": "#/$defs/taskSpec"
+      }
+    },
+    "mail": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "event": {
+              "type": "string",
+              "description": "Use 'result' for log/result email or 'error' for error email."
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "smtpServer": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "cc": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "useSsl": {
+              "type": "boolean"
+            },
+            "attachXmlLog": {
+              "type": "boolean"
+            },
+            "attachIdentityFile": {
+              "type": "boolean"
+            },
+            "failOnEmailError": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event"
+            ],
+            "properties": {
+              "event": {
+                "type": "string",
+                "enum": [
+                  "result",
+                  "error"
+                ]
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "smtpServer": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "cc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "useSsl": {
+                "type": "boolean"
+              },
+              "attachXmlLog": {
+                "type": "boolean"
+              },
+              "attachIdentityFile": {
+                "type": "boolean"
+              },
+              "failOnEmailError": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      ],
+      "description": "One entry is shared by result and error emails. Two entries require explicit event values: result and error."
+    },
+    "safetyAllowListMode": {
+      "type": "boolean",
+      "description": "When true, the suite refuses to scan/disable unless includeFolders or includeTasks is present."
+    },
+    "useDefaultProtectedTaskList": {
+      "type": "boolean",
+      "description": "When false, disables the built-in protected Windows/System task folder list. Defaults to true."
+    },
+    "protectedFolders": {
+      "type": "array",
+      "description": "Additional folders that must never be disabled. Protected entries win over includes.",
+      "items": {
+        "$ref": "#/$defs/folderSpec"
+      }
+    },
+    "protectedTasks": {
+      "type": "array",
+      "description": "Additional task name patterns that must never be disabled. Protected entries win over includes.",
+      "items": {
+        "$ref": "#/$defs/taskSpec"
+      }
+    }
+  },
+  "$defs": {
+    "folderSpec": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "taskPath"
+          ],
+          "properties": {
+            "taskPath": {
+              "type": "string",
+              "description": "Task Scheduler folder path, for example '\\\\MyCompany\\\\'."
+            },
+            "path": {
+              "type": "string",
+              "description": "Alias for taskPath."
+            },
+            "recurse": {
+              "type": "boolean",
+              "description": "When true, match tasks in this folder and all subfolders. When false, match only this exact folder."
+            }
+          }
+        }
+      ]
+    },
+    "taskSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "taskPath",
+        "taskName"
+      ],
+      "properties": {
+        "taskPath": {
+          "type": "string",
+          "description": "Task Scheduler folder path, for example '\\\\MyCompany\\\\'."
+        },
+        "taskName": {
+          "type": "string",
+          "description": "Task name or wildcard pattern, for example 'NightlyBackup' or 'DataExport-*'."
+        }
+      }
+    }
+  }
+}

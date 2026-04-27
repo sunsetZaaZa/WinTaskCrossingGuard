@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WinTaskCrossingGuardDisableLog createdAt="2026-04-27T08:25:35.5949712-05:00" createdLocal="2026-04-27 08:25:35 -05:00" operation="DisableTasksInWindow">
+  <Window>
+    <Start>2030-01-02T08:00:00.0000000</Start>
+    <End>2030-01-02T17:00:00.0000000</End>
+  </Window>
+  <Tasks count="1">
+    <Task>
+      <TaskPath>\Root\</TaskPath>
+      <TaskName>TaskA</TaskName>
+      <FullName>\Root\TaskA</FullName>
+      <StateAtDiscovery>Ready</StateAtDiscovery>
+      <NextRunTime>2030-01-02T12:00:00.0000000</NextRunTime>
+      <Action>Disabled</Action>
+      <LoggedAt>2026-04-27T08:25:35.6105738-05:00</LoggedAt>
+    </Task>
+  </Tasks>
+</WinTaskCrossingGuardDisableLog>

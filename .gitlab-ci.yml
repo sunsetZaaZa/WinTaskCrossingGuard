@@ -1,0 +1,29 @@
+stages:
+  - test
+
+pester:
+  stage: test
+  tags:
+    - windows
+
+  before_script:
+    - pwsh -NoProfile -Command '$PSVersionTable'
+
+  script:
+    - >
+      pwsh -NoProfile -ExecutionPolicy Bypass -File .\Install-ProjectPester.ps1
+      -RequiredVersion 5.0.0
+      -Scope CurrentUser
+      -Force
+      -SkipPublisherCheck
+    - >
+      pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardTests.ps1 -MinimumCoveragePercent 90
+
+  artifacts:
+    when: always
+    paths:
+      - TestResults/pester-results.xml
+      - TestResults/coverage.xml
+    reports:
+      junit: TestResults/pester-results.xml
+    expire_in: 14 days

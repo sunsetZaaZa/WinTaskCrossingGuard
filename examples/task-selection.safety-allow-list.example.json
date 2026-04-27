@@ -1,0 +1,44 @@
+{
+  "$schema": "../task-selection.schema.json",
+  "safetyAllowListMode": true,
+  "useDefaultProtectedTaskList": true,
+  "includeFolders": [
+    {
+      "taskPath": "\\MyCompany\\MaintenanceWindow\\",
+      "recurse": true
+    }
+  ],
+  "includeTasks": [
+    {
+      "taskPath": "\\WinTaskCrossingGuardTest\\",
+      "taskName": "WTCG-TestTask"
+    }
+  ],
+  "protectedFolders": [
+    {
+      "taskPath": "\\MyCompany\\Critical\\",
+      "recurse": true
+    }
+  ],
+  "protectedTasks": [
+    {
+      "taskPath": "\\MyCompany\\MaintenanceWindow\\",
+      "taskName": "NeverDisable-*"
+    }
+  ],
+  "mail": {
+    "enabled": false,
+    "smtpServer": "mail.internal.example.com",
+    "port": 25,
+    "from": "wintaskcrossingguard@example.com",
+    "to": [
+      "ops@example.com"
+    ],
+    "cc": [
+      "audit@example.com"
+    ],
+    "useSsl": false,
+    "attachXmlLog": true,
+    "attachIdentityFile": true
+  }
+}

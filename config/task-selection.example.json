@@ -1,0 +1,73 @@
+{
+  "$schema": "./task-selection.schema.json",
+  "includeFolders": [
+    {
+      "taskPath": "\\MyCompany\\",
+      "recurse": true
+    },
+    {
+      "taskPath": "\\Microsoft\\Windows\\Defrag\\",
+      "recurse": false
+    },
+    "\\LegacyFolderStringFormat\\"
+  ],
+  "includeTasks": [
+    {
+      "taskPath": "\\",
+      "taskName": "NightlyBackup"
+    },
+    {
+      "taskPath": "\\MyCompany\\",
+      "taskName": "DataExport-*"
+    }
+  ],
+  "excludeFolders": [
+    {
+      "taskPath": "\\MyCompany\\NeverDisable\\",
+      "recurse": true
+    },
+    {
+      "taskPath": "\\MyCompany\\OnlyThisFolder\\",
+      "recurse": false
+    }
+  ],
+  "excludeTasks": [
+    {
+      "taskPath": "\\Microsoft\\Windows\\Defrag\\",
+      "taskName": "ScheduledDefrag"
+    },
+    {
+      "taskPath": "\\MyCompany\\",
+      "taskName": "CriticalHeartbeat"
+    }
+  ],
+  "mail": {
+    "enabled": true,
+    "smtpServer": "mail.internal.example.com",
+    "port": 25,
+    "from": "wintaskcrossingguard@example.com",
+    "to": [
+      "ops@example.com"
+    ],
+    "cc": [
+      "audit@example.com"
+    ],
+    "useSsl": false,
+    "attachXmlLog": true,
+    "attachIdentityFile": true
+  },
+  "safetyAllowListMode": true,
+  "useDefaultProtectedTaskList": true,
+  "protectedFolders": [
+    {
+      "taskPath": "\\MyCompany\\Critical\\",
+      "recurse": true
+    }
+  ],
+  "protectedTasks": [
+    {
+      "taskPath": "\\MyCompany\\",
+      "taskName": "DoNotDisable-*"
+    }
+  ]
+}
