@@ -9,7 +9,7 @@ PowerShell 7 script suite for finding, disabling, enabling, and immediately star
 - `Disable-TasksInWindow.ps1` - finds matching tasks, returns identities when requested, writes a manifest, and disables them.
 - `Enable-TaskIdentities.ps1` - enables tasks from piped identities or an identity JSON file.
 - `Start-TaskIdentities.ps1` - starts tasks immediately from piped identities or an identity JSON file.
-- `Restore-TasksFromManifest.ps1` - compatibility script that re-enables tasks listed in a disable manifest.
+- `Restore-TasksFromManifest.ps1` - restores only tasks marked as disabled by this suite run in a rollback manifest.
 - `task-selection.example.json` - example selection policy.
 - `task-selection.schema.json` - JSON schema for editor validation.
 
@@ -77,12 +77,15 @@ You can change the default for string entries or object entries that omit `recur
 
 ## Core identity object
 
-The suite uses a lightweight identity object:
+The suite uses a lightweight identity object. Rollback manifests extend it with the original state and suite-disable marker so tasks that were already disabled stay disabled:
 
 ```powershell
 [pscustomobject]@{
   TaskPath = "\MyCompany\"
   TaskName = "NightlyBackup"
+  OriginalState = "Ready"
+  WasOriginallyEnabled = $true
+  DisabledBySuite = $true
 }
 ```
 
@@ -105,14 +108,14 @@ $tasks = .\Find-TasksInWindow.ps1 `
 $tasks | Format-Table TaskPath, TaskName, NextRunTime
 ```
 
-## Find, export identities, and disable
+## Find, write rollback manifest, and disable
 
 ```powershell
 .\Disable-TasksInWindow.ps1 `
   -Start "22:00" `
   -End "06:00" `
   -SelectionPath .\task-selection.example.json `
-  -IdentityOutputPath .\matched-task-identities.json
+  -ManifestPath .\rollback-manifest.json
 ```
 
 ## Return identities while disabling
@@ -131,10 +134,10 @@ $disabledTasks = .\Disable-TasksInWindow.ps1 `
 $disabledTasks | .\Enable-TaskIdentities.ps1
 ```
 
-## Re-enable using identity JSON
+## Restore using rollback manifest
 
 ```powershell
-.\Enable-TaskIdentities.ps1 -IdentityPath .\matched-task-identities.json
+.\Restore-TasksFromManifest.ps1 -ManifestPath .\rollback-manifest.json
 ```
 
 ## Start immediately using returned identities
@@ -249,9 +252,9 @@ It does all of this in one flow:
 
 ```text
 Find tasks inside a time window
-Export their TaskPath/TaskName identities to JSON
-Disable those tasks
-Create or update a separate Windows Scheduled Task that re-enables them later
+Capture original task state and discovery metadata in a rollback manifest
+Disable only tasks that were originally enabled
+Create or update a separate Windows Scheduled Task that restores only tasks disabled by this suite run
 ```
 
 Example:
@@ -264,7 +267,7 @@ Disable-WtcgTasksInWindowAndScheduleReenable `
   -End '06:00' `
   -ReenableAt ([datetime]'2026-04-27T06:30:00') `
   -SelectionPath .\task-selection.example.json `
-  -IdentityOutputPath .\matched-task-identities.json `
+  -ManifestPath .\rollback-manifest.json `
   -ReenableTaskPath '\WinTaskCrossingGuard\' `
   -ReenableTaskName 'ReenableDisabledTasks'
 ```

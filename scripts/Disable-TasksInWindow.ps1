@@ -132,18 +132,54 @@ if ($matches.Count -eq 0) {
     return
 }
 
-$manifestFile = $matches |
+$taskIdentities = @(
+    $matches | ForEach-Object {
+        New-WtcgTaskIdentity `
+            -TaskPath $_.TaskPath `
+            -TaskName $_.TaskName `
+            -NextRunTime $_.NextRunTime `
+            -State ([string]$_.State) `
+            -OriginalState ([string]$_.State) `
+            -WasOriginallyEnabled ([string]$_.State -ne 'Disabled') `
+            -LastRunTime $_.LastRunTime `
+            -LastTaskResult $_.LastTaskResult `
+            -Author $_.Author `
+            -Description $_.Description
+    }
+)
+
+$disabledTaskIdentities = @(
+    $taskIdentities | Disable-WtcgTaskIdentity -WhatIf:$WhatIfPreference -Confirm:$false
+)
+
+$disabledFullNames = @{}
+foreach ($disabledIdentity in $disabledTaskIdentities) {
+    $disabledFullNames[$disabledIdentity.FullName] = $disabledIdentity
+}
+
+$rollbackIdentities = @(
+    foreach ($identity in $taskIdentities) {
+        if ($disabledFullNames.ContainsKey($identity.FullName)) {
+            $disabledFullNames[$identity.FullName]
+        }
+        else {
+            $identity
+        }
+    }
+)
+
+$manifestFile = $rollbackIdentities |
     Save-WtcgManifest -Path $ManifestPath -WindowStart $window.Start -WindowEnd $window.End -Selection $selection
 
-Write-Host "Matched $($matches.Count) task(s). Manifest written to: $($manifestFile.FullName)"
+Write-Host "Matched $($matches.Count) task(s). Rollback manifest written to: $($manifestFile.FullName)"
 
-$xmlLogFile = $matches |
+$xmlLogFile = $rollbackIdentities |
     Write-WtcgDisableXmlLog `
         -Path $XmlLogPath `
         -WindowStart $window.Start `
         -WindowEnd $window.End `
         -SelectionSource $(if ($null -ne $selection) { $selection.SourcePath } else { $null }) `
-        -IdentityOutputPath $IdentityOutputPath `
+        -IdentityOutputPath $manifestFile.FullName `
         -Operation 'DisableTasksInWindow'
 
 Write-Host "XML disable log written to: $($xmlLogFile.FullName)"
@@ -151,7 +187,7 @@ Write-Host "XML disable log written to: $($xmlLogFile.FullName)"
 Send-WtcgLogGeneratedNotificationFromSettings `
     -MailSettings $resultMailSettings `
     -XmlLogPath $xmlLogFile.FullName `
-    -IdentityOutputPath $IdentityOutputPath `
+    -IdentityOutputPath $manifestFile.FullName `
     -Operation 'DisableTasksInWindow'
 
 
@@ -168,7 +204,7 @@ if (-not [string]::IsNullOrWhiteSpace($LogEmailSmtpServer) -and
         -Cc $LogEmailCc `
         -Subject $LogEmailSubject `
         -XmlLogPath $xmlLogFile.FullName `
-        -IdentityOutputPath $IdentityOutputPath `
+        -IdentityOutputPath $manifestFile.FullName `
         -Operation 'DisableTasksInWindow' `
         -UseSsl:$LogEmailUseSsl `
         -Credential $LogEmailCredential `
@@ -176,25 +212,17 @@ if (-not [string]::IsNullOrWhiteSpace($LogEmailSmtpServer) -and
         -FailOnEmailError:$FailOnLogEmailError
 }
 
-$taskIdentities = @(
-    $matches | ForEach-Object {
-        New-WtcgTaskIdentity -TaskPath $_.TaskPath -TaskName $_.TaskName -NextRunTime $_.NextRunTime -State ([string]$_.State)
-    }
-)
-
 if (-not [string]::IsNullOrWhiteSpace($IdentityOutputPath)) {
-    $identityFile = $taskIdentities |
+    $identityFile = $rollbackIdentities |
         Export-WtcgTaskIdentity -Path $IdentityOutputPath -Kind 'WinTaskCrossingGuard.MatchedWindowTasks'
 
     Write-Host "Task identity list written to: $($identityFile.FullName)"
 }
 
-$taskIdentities | Disable-WtcgTaskIdentity -WhatIf:$WhatIfPreference -Confirm:$false | Out-Null
-
 Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'logs') -WhatIf:$WhatIfPreference
 
 if ($ReturnTaskIdentity -or $PassThru) {
-    $taskIdentities
+    $rollbackIdentities
 }
 
 }

@@ -24,11 +24,27 @@ if ($null -eq $manifest.Tasks) {
 
 $identities = @(
     foreach ($task in @($manifest.Tasks)) {
-        New-WtcgTaskIdentity -TaskPath ([string]$task.TaskPath) -TaskName ([string]$task.TaskName)
+        $wasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $task -Name 'WasOriginallyEnabled' -DefaultValue $true)
+        $disabledBySuite = [bool](Get-WtcgObjectPropertyValue -InputObject $task -Name 'DisabledBySuite' -DefaultValue $false)
+
+        if (-not ($wasOriginallyEnabled -and $disabledBySuite)) {
+            Write-Verbose "Skipping '$($task.TaskPath)$($task.TaskName)' because it was not disabled by this suite run."
+            continue
+        }
+
+        New-WtcgTaskIdentity `
+            -TaskPath ([string]$task.TaskPath) `
+            -TaskName ([string]$task.TaskName) `
+            -OriginalState (Get-WtcgObjectPropertyValue -InputObject $task -Name 'OriginalState') `
+            -WasOriginallyEnabled $true `
+            -DisabledBySuite $true
     }
 )
 
-$restored = $identities | Enable-WtcgTaskIdentity -WhatIf:$WhatIfPreference -Confirm:$false
+$restored = @()
+if ($identities.Count -gt 0) {
+    $restored = $identities | Enable-WtcgTaskIdentity -WhatIf:$WhatIfPreference -Confirm:$false
+}
 
 if ($PassThru) {
     $restored
