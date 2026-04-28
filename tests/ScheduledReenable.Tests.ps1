@@ -15,7 +15,7 @@ Describe 'Disable-WtcgTasksInWindowAndScheduleReenable orchestration' {
 
         $script:IdentityPath = Join-Path $script:TempDir 'identities.json'
         $script:SelectionPath = Join-Path $script:TempDir 'selection.json'
-        $script:EnableScriptPath = Join-Path $script:ProjectRoot 'scripts\Enable-TaskIdentities.ps1'
+        $script:EnableScriptPath = Join-Path $script:ProjectRoot 'scripts\Restore-TasksFromManifest.ps1'
 
         @{
             includeTasks = @(
@@ -198,7 +198,8 @@ Describe 'Disable-WtcgTasksInWindowAndScheduleReenable orchestration' {
 
             Should -Invoke New-ScheduledTaskAction -Times 1 -ParameterFilter {
                 $Execute -eq 'pwsh.exe' -and
-                $Argument -like '*Enable-TaskIdentities.ps1*' -and
+                $Argument -like '*Restore-TasksFromManifest.ps1*' -and
+                $Argument -like '*-ManifestPath*' -and
                 $Argument -like '*identities.json*'
             }
 
