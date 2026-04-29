@@ -67,6 +67,7 @@ That module contains the functional behavior:
 - manifest writing
 - XML disable log writing
 - SIEM-friendly JSONL event writing under steamablelogs
+- Windows Event Log audit event formatting for the WinTaskCrossingGuard source
 - default XML log path resolution
 
 Wrapper scripts are intentionally smoke-tested for syntax and identity-file behavior, because they mostly forward parameters into the module.
@@ -97,6 +98,7 @@ No real scheduled tasks are required for the unit tests.
 - XML error log writing for configuration failures
 - JSONL error, re-enable, and notification event writing
 - Scheduled re-enable overlap detection and stale-task update behavior
+- Windows Event Log audit integration
 
 - safety allow-list mode behavior
 - protected never-disable task policy

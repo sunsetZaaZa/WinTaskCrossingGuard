@@ -35,6 +35,20 @@ param(
     [string] $JsonlLogPath,
 
     [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [string] $EventLogSource = 'WinTaskCrossingGuard',
+
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [string] $EventLogName = 'Application',
+
+    [Parameter()]
+    [switch] $DisableEventLog,
+
+    [Parameter()]
+    [switch] $FailOnEventLogError,
+
+    [Parameter()]
     [string] $LogEmailSmtpServer,
 
     [Parameter()]
@@ -237,6 +251,29 @@ if ($disabledTaskIdentities.Count -gt 0) {
 
     Write-Host "JSONL disable log written to: $($jsonlLogFile.FullName)"
 }
+Write-WtcgAuditEvent `
+    -Action 'disable' `
+    -Operation 'DisableTasksInWindow' `
+    -Status 'succeeded' `
+    -EventId 4100 `
+    -EntryType 'Information' `
+    -Details ([ordered]@{
+        matchedTaskCount = $matches.Count
+        disabledTaskCount = $disabledTaskIdentities.Count
+        windowStart = $window.Start.ToString('o')
+        windowEnd = $window.End.ToString('o')
+        selectionSource = if ($null -ne $selection) { $selection.SourcePath } else { $null }
+        manifestPath = $manifestFile.FullName
+        identityOutputPath = $IdentityOutputPath
+        xmlLogPath = $xmlLogFile.FullName
+        jsonlLogPath = $effectiveJsonlLogPath
+    }) `
+    -EventLogSource $EventLogSource `
+    -EventLogName $EventLogName `
+    -DisableEventLog:$DisableEventLog `
+    -FailOnEventLogError:$FailOnEventLogError |
+    Out-Null
+
 
 Send-WtcgLogGeneratedNotificationFromSettings `
     -MailSettings $resultMailSettings `
@@ -308,6 +345,25 @@ catch {
         -IdentityOutputPath $ManifestPath
 
     Write-Host "JSONL error log written to: $($errorJsonlLogFile.FullName)" -ForegroundColor Yellow
+    Write-WtcgAuditEvent `
+        -Action 'error' `
+        -Operation 'DisableTasksInWindow' `
+        -Status 'failed' `
+        -EventId 5100 `
+        -EntryType 'Error' `
+        -Details ([ordered]@{
+            message = $_.Exception.Message
+            selectionSource = $SelectionPath
+            manifestPath = $ManifestPath
+            xmlLogPath = if ($null -ne $errorXmlLogFile) { $errorXmlLogFile.FullName } else { $null }
+            jsonlLogPath = if ($null -ne $errorJsonlLogFile) { $errorJsonlLogFile.FullName } else { $null }
+        }) `
+        -EventLogSource $EventLogSource `
+        -EventLogName $EventLogName `
+        -DisableEventLog:$DisableEventLog `
+        -FailOnEventLogError:$FailOnEventLogError |
+        Out-Null
+
 
     if ($null -ne $errorMailSettings -and (Test-WtcgMailSettingsReady -MailSettings $errorMailSettings)) {
         $errorXmlLogPath = Resolve-WtcgXmlLogPath -Path $XmlLogPath

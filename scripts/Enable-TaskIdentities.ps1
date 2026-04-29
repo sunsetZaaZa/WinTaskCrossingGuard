@@ -9,6 +9,20 @@ param(
     [string] $JsonlLogPath,
 
     [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [string] $EventLogSource = 'WinTaskCrossingGuard',
+
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [string] $EventLogName = 'Application',
+
+    [Parameter()]
+    [switch] $DisableEventLog,
+
+    [Parameter()]
+    [switch] $FailOnEventLogError,
+
+    [Parameter()]
     [AllowNull()]
     [AllowEmptyString()]
     [string] $RunId,
@@ -57,6 +71,25 @@ end {
                 -Operation $Operation |
             Out-Null
     }
+    Write-WtcgAuditEvent `
+        -Action 're-enable' `
+        -Operation $Operation `
+        -Status 'succeeded' `
+        -EventId 4200 `
+        -EntryType 'Information' `
+        -Details ([ordered]@{
+            identityPath = $IdentityPath
+            candidateTaskCount = $buffer.Count
+            enabledTaskCount = $enabled.Count
+            jsonlLogPath = $JsonlLogPath
+        }) `
+        -RunId $RunId `
+        -EventLogSource $EventLogSource `
+        -EventLogName $EventLogName `
+        -DisableEventLog:$DisableEventLog `
+        -FailOnEventLogError:$FailOnEventLogError |
+        Out-Null
+
 
     $enabled
 }

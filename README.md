@@ -432,6 +432,51 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\Disable-TasksInWindow.ps1 `
 Scheduled re-enable workflows pass the generated JSONL path into `Restore-TasksFromManifest.ps1` so disable, notification, and re-enable events can land in the same streamable event file.
 
 
+
+## Windows Event Log audit trail
+
+Important actions and failures are also emitted to the native Windows Event Log for enterprise audit tooling.
+
+Default native audit target:
+
+```text
+Log name: Application
+Source: WinTaskCrossingGuard
+```
+
+The event message is compact JSON with operation, action, status, host, user, process ID, and action-specific details. The integration is non-fatal by default: if the `WinTaskCrossingGuard` source does not exist and the current process cannot create it, the XML and JSONL logs still succeed.
+
+Common event IDs:
+
+```text
+4100 disable completed
+4101 scheduled re-enable task created or updated
+4200 restore/re-enable completed
+5100 disable workflow failed
+5200 restore/re-enable workflow failed
+```
+
+Pre-create the source from an elevated PowerShell session when you want guaranteed native audit writes:
+
+```powershell
+Initialize-WtcgWindowsEventLogSource `
+  -Source 'WinTaskCrossingGuard' `
+  -LogName 'Application'
+```
+
+Disable native Event Log writes for a run:
+
+```powershell
+Disable-WtcgTasksInWindowAndScheduleReenable `
+  -Start '22:00' `
+  -End '06:00' `
+  -ReenableAt ([datetime]'2026-04-27T06:30:00') `
+  -SelectionPath .\task-selection.example.json `
+  -IdentityOutputPath .\rollback-manifest.json `
+  -DisableEventLog
+```
+
+Use `-FailOnEventLogError` when audit failure should fail the task operation instead of being skipped.
 ## Intranet SMTP email notifications
 
 The suite supports two separate email notification events:
