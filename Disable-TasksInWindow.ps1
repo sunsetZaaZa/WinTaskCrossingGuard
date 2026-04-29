@@ -22,7 +22,7 @@ param(
     [switch] $IncludeDisabled,
 
     [Parameter()]
-    [string] $ManifestPath = (Join-Path (Split-Path -Parent $PSScriptRoot) ("manifests\disabled-tasks-{0:yyyyMMdd-HHmmss}.json" -f (Get-Date))),
+    [string] $ManifestPath = (Join-Path $PSScriptRoot ("manifests\disabled-tasks-{0:yyyyMMdd-HHmmss}.json" -f (Get-Date))),
 
     [Parameter()]
     [AllowNull()]
@@ -33,6 +33,26 @@ param(
     [AllowNull()]
     [AllowEmptyString()]
     [string] $JsonlLogPath,
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $RunId,
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $RunRootPath,
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $RunFolderPath,
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $ReportPath,
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
@@ -115,7 +135,39 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot '..\WinTaskCrossingGuard\WinTaskCrossingGuard.psd1') -Force
+Import-Module (Join-Path $PSScriptRoot 'WinTaskCrossingGuard\WinTaskCrossingGuard.psd1') -Force
+
+$runContext = New-WtcgRunContext `
+    -RunId $RunId `
+    -RunRootPath $RunRootPath `
+    -RunFolderPath $RunFolderPath `
+    -Operation 'DisableTasksInWindow'
+
+$RunId = $runContext.RunId
+$RunFolderPath = $runContext.RunFolderPath
+
+if (-not $PSBoundParameters.ContainsKey('ManifestPath') -or [string]::IsNullOrWhiteSpace($ManifestPath)) {
+    $ManifestPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Manifests' -FileName 'rollback-manifest.json'
+}
+
+if (-not $PSBoundParameters.ContainsKey('IdentityOutputPath') -or [string]::IsNullOrWhiteSpace($IdentityOutputPath)) {
+    $IdentityOutputPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Identities' -FileName 'matched-window-tasks.json'
+}
+
+if (-not $PSBoundParameters.ContainsKey('XmlLogPath') -or [string]::IsNullOrWhiteSpace($XmlLogPath)) {
+    $XmlLogPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Logs' -FileName 'disabled-tasks.xml'
+}
+
+if (-not $PSBoundParameters.ContainsKey('JsonlLogPath') -or [string]::IsNullOrWhiteSpace($JsonlLogPath)) {
+    $JsonlLogPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'JsonlLogs' -FileName 'wintaskcrossingguard-events.jsonl'
+}
+
+if (-not $PSBoundParameters.ContainsKey('ReportPath') -or [string]::IsNullOrWhiteSpace($ReportPath)) {
+    $ReportPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Reports' -FileName 'disable-report.json'
+}
+
+$effectiveErrorXmlLogPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Errors' -FileName 'wintaskcrossingguard-error.xml'
+$effectiveErrorReportPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Errors' -FileName 'disable-error-report.json'
 
 # WinTaskCrossingGuard notification try/catch wrapper
 try {
@@ -149,6 +201,17 @@ $matches = @(
 
 if ($matches.Count -eq 0) {
     Write-Host "No enabled scheduled tasks have NextRunTime inside $($window.Start) -> $($window.End) after selection filtering."
+    $reportFile = Save-WtcgRunReport `
+        -RunContext $runContext `
+        -Path $ReportPath `
+        -Operation 'DisableTasksInWindow' `
+        -Status 'no-matching-tasks' `
+        -Details ([ordered]@{
+            windowStart = $window.Start.ToString('o')
+            windowEnd = $window.End.ToString('o')
+            selectionSource = if ($null -ne $selection) { $selection.SourcePath } else { $null }
+        })
+    Write-Host "Run report written to: $($reportFile.FullName)"
     return
 }
 
@@ -189,7 +252,7 @@ $rollbackIdentities = @(
 )
 
 $manifestFile = $rollbackIdentities |
-    Save-WtcgManifest -Path $ManifestPath -WindowStart $window.Start -WindowEnd $window.End -Selection $selection
+    Save-WtcgManifest -Path $ManifestPath -WindowStart $window.Start -WindowEnd $window.End -Selection $selection -RunId $RunId -RunFolderPath $RunFolderPath
 
 Write-Host "Matched $($matches.Count) task(s). Rollback manifest written to: $($manifestFile.FullName)"
 
@@ -200,6 +263,8 @@ $xmlLogFile = $rollbackIdentities |
         -WindowEnd $window.End `
         -SelectionSource $(if ($null -ne $selection) { $selection.SourcePath } else { $null }) `
         -IdentityOutputPath $manifestFile.FullName `
+        -RunId $RunId `
+        -RunFolderPath $RunFolderPath `
         -Operation 'DisableTasksInWindow'
 
 Write-Host "XML disable log written to: $($xmlLogFile.FullName)"
@@ -213,6 +278,8 @@ if ($disabledTaskIdentities.Count -gt 0) {
             -WindowEnd $window.End `
             -SelectionSource $(if ($null -ne $selection) { $selection.SourcePath } else { $null }) `
             -IdentityOutputPath $manifestFile.FullName `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath `
             -Operation 'DisableTasksInWindow'
 
     Write-Host "JSONL disable log written to: $($jsonlLogFile.FullName)"
@@ -233,7 +300,11 @@ Write-WtcgAuditEvent `
         identityOutputPath = $IdentityOutputPath
         xmlLogPath = $xmlLogFile.FullName
         jsonlLogPath = $effectiveJsonlLogPath
+        runFolderPath = $RunFolderPath
+        runInfoPath = $runContext.RunInfoPath
     }) `
+    -RunId $RunId `
+    -RunFolderPath $RunFolderPath `
     -EventLogSource $EventLogSource `
     -EventLogName $EventLogName `
     -DisableEventLog:$DisableEventLog `
@@ -246,6 +317,8 @@ Send-WtcgLogGeneratedNotificationFromSettings `
     -XmlLogPath $xmlLogFile.FullName `
     -JsonlLogPath $effectiveJsonlLogPath `
     -IdentityOutputPath $manifestFile.FullName `
+    -RunId $RunId `
+    -RunFolderPath $RunFolderPath `
     -Operation 'DisableTasksInWindow'
 
 
@@ -264,6 +337,8 @@ if (-not [string]::IsNullOrWhiteSpace($LogEmailSmtpServer) -and
         -XmlLogPath $xmlLogFile.FullName `
         -JsonlLogPath $effectiveJsonlLogPath `
         -IdentityOutputPath $manifestFile.FullName `
+        -RunId $RunId `
+        -RunFolderPath $RunFolderPath `
         -Operation 'DisableTasksInWindow' `
         -UseSsl:$LogEmailUseSsl `
         -Credential $LogEmailCredential `
@@ -273,13 +348,30 @@ if (-not [string]::IsNullOrWhiteSpace($LogEmailSmtpServer) -and
 
 if (-not [string]::IsNullOrWhiteSpace($IdentityOutputPath)) {
     $identityFile = $rollbackIdentities |
-        Export-WtcgTaskIdentity -Path $IdentityOutputPath -Kind 'WinTaskCrossingGuard.MatchedWindowTasks'
+        Export-WtcgTaskIdentity -Path $IdentityOutputPath -Kind 'WinTaskCrossingGuard.MatchedWindowTasks' -RunId $RunId -RunFolderPath $RunFolderPath
 
     Write-Host "Task identity list written to: $($identityFile.FullName)"
 }
 
-Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'logs') -WhatIf:$WhatIfPreference
-Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steamablelogs') -Filter '*.jsonl' -WhatIf:$WhatIfPreference
+$reportFile = Save-WtcgRunReport `
+    -RunContext $runContext `
+    -Path $ReportPath `
+    -Operation 'DisableTasksInWindow' `
+    -Status 'succeeded' `
+    -Details ([ordered]@{
+        matchedTaskCount = $matches.Count
+        disabledTaskCount = $disabledTaskIdentities.Count
+        windowStart = $window.Start.ToString('o')
+        windowEnd = $window.End.ToString('o')
+        manifestPath = $manifestFile.FullName
+        identityOutputPath = $IdentityOutputPath
+        xmlLogPath = $xmlLogFile.FullName
+        jsonlLogPath = $effectiveJsonlLogPath
+    })
+Write-Host "Run report written to: $($reportFile.FullName)"
+
+Clear-WtcgOldLogs -EnvPath (Join-Path $PSScriptRoot '.env') -LogsPath (Join-Path $PSScriptRoot 'logs') -WhatIf:$WhatIfPreference
+Clear-WtcgOldLogs -EnvPath (Join-Path $PSScriptRoot '.env') -LogsPath (Join-Path $PSScriptRoot 'steamablelogs') -Filter '*.jsonl' -WhatIf:$WhatIfPreference
 
 if ($ReturnTaskIdentity -or $PassThru) {
     $rollbackIdentities
@@ -291,10 +383,12 @@ catch {
 
     $errorXmlLogFile = Write-WtcgErrorXmlLog `
         -ErrorRecord $_ `
-        -Path $XmlLogPath `
+        -Path $effectiveErrorXmlLogPath `
         -Operation 'DisableTasksInWindow' `
         -SelectionSource $SelectionPath `
-        -IdentityOutputPath $ManifestPath
+        -IdentityOutputPath $ManifestPath `
+        -RunId $RunId `
+        -RunFolderPath $RunFolderPath
 
     Write-Host "XML error log written to: $($errorXmlLogFile.FullName)" -ForegroundColor Yellow
 
@@ -303,9 +397,26 @@ catch {
         -Path $JsonlLogPath `
         -Operation 'DisableTasksInWindow' `
         -SelectionSource $SelectionPath `
-        -IdentityOutputPath $ManifestPath
+        -IdentityOutputPath $ManifestPath `
+        -RunId $RunId `
+        -RunFolderPath $RunFolderPath
 
     Write-Host "JSONL error log written to: $($errorJsonlLogFile.FullName)" -ForegroundColor Yellow
+
+    Save-WtcgRunReport `
+        -RunContext $runContext `
+        -Path $effectiveErrorReportPath `
+        -Operation 'DisableTasksInWindow' `
+        -Status 'failed' `
+        -Details ([ordered]@{
+            message = $_.Exception.Message
+            selectionSource = $SelectionPath
+            manifestPath = $ManifestPath
+            xmlLogPath = if ($null -ne $errorXmlLogFile) { $errorXmlLogFile.FullName } else { $null }
+            jsonlLogPath = if ($null -ne $errorJsonlLogFile) { $errorJsonlLogFile.FullName } else { $null }
+        }) |
+        Out-Null
+
     Write-WtcgAuditEvent `
         -Action 'error' `
         -Operation 'DisableTasksInWindow' `
@@ -319,6 +430,8 @@ catch {
             xmlLogPath = if ($null -ne $errorXmlLogFile) { $errorXmlLogFile.FullName } else { $null }
             jsonlLogPath = if ($null -ne $errorJsonlLogFile) { $errorJsonlLogFile.FullName } else { $null }
         }) `
+        -RunId $RunId `
+        -RunFolderPath $RunFolderPath `
         -EventLogSource $EventLogSource `
         -EventLogName $EventLogName `
         -DisableEventLog:$DisableEventLog `
@@ -335,7 +448,9 @@ catch {
             -Operation 'DisableTasksInWindow' `
             -XmlLogPath $errorXmlLogFile.FullName `
             -JsonlLogPath $errorJsonlLogFile.FullName `
-            -IdentityOutputPath $ManifestPath
+            -IdentityOutputPath $ManifestPath `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath
     }
 
     if (-not [string]::IsNullOrWhiteSpace($ErrorEmailSmtpServer) -and
@@ -357,6 +472,8 @@ catch {
             -XmlLogPath $errorXmlLogFile.FullName `
             -JsonlLogPath $errorJsonlLogFile.FullName `
             -IdentityOutputPath $ManifestPath `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath `
             -UseSsl:$ErrorEmailUseSsl `
             -Credential $ErrorEmailCredential `
             -AttachXmlLog `
