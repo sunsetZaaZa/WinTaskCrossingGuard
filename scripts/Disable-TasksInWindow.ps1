@@ -177,8 +177,8 @@ $taskIdentities = @(
             -WasOriginallyEnabled ([string]$_.State -ne 'Disabled') `
             -LastRunTime $_.LastRunTime `
             -LastTaskResult $_.LastTaskResult `
-            -Author $_.Author `
-            -Description $_.Description
+            -Author (Get-WtcgObjectPropertyValue -InputObject $_ -Name 'Author') `
+            -Description (Get-WtcgObjectPropertyValue -InputObject $_ -Name 'Description')
     }
 )
 
@@ -273,7 +273,7 @@ catch {
         -Path $XmlLogPath `
         -Operation 'DisableTasksInWindow' `
         -SelectionSource $SelectionPath `
-        -IdentityOutputPath $IdentityOutputPath
+        -IdentityOutputPath $ManifestPath
 
     Write-Host "XML error log written to: $($errorXmlLogFile.FullName)" -ForegroundColor Yellow
 
@@ -285,7 +285,7 @@ catch {
             -ErrorRecord $_ `
             -Operation 'DisableTasksInWindow' `
             -XmlLogPath $errorXmlLogFile.FullName `
-            -IdentityOutputPath $IdentityOutputPath
+            -IdentityOutputPath $ManifestPath
     }
 
     if (-not [string]::IsNullOrWhiteSpace($ErrorEmailSmtpServer) -and
@@ -305,7 +305,7 @@ catch {
             -Subject $ErrorEmailSubject `
             -Operation 'DisableTasksInWindow' `
             -XmlLogPath $errorXmlLogFile.FullName `
-            -IdentityOutputPath $IdentityOutputPath `
+            -IdentityOutputPath $ManifestPath `
             -UseSsl:$ErrorEmailUseSsl `
             -Credential $ErrorEmailCredential `
             -AttachXmlLog `

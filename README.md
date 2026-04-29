@@ -267,7 +267,7 @@ Disable-WtcgTasksInWindowAndScheduleReenable `
   -End '06:00' `
   -ReenableAt ([datetime]'2026-04-27T06:30:00') `
   -SelectionPath .\task-selection.example.json `
-  -ManifestPath .\rollback-manifest.json `
+  -IdentityOutputPath .\rollback-manifest.json `
   -ReenableTaskPath '\WinTaskCrossingGuard\' `
   -ReenableTaskName 'ReenableDisabledTasks'
 ```

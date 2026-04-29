@@ -251,6 +251,7 @@ function New-WtcgTaskIdentity {
         LastTaskResult          = $LastTaskResult
         Author                  = $Author
         Description             = $Description
+
     }
 }
 
@@ -279,6 +280,11 @@ function Import-WtcgTaskIdentity {
             -OriginalState (Get-WtcgObjectPropertyValue -InputObject $item -Name 'OriginalState') `
             -WasOriginallyEnabled ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'WasOriginallyEnabled' -DefaultValue $true)) `
             -DisabledBySuite ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledBySuite' -DefaultValue $false))
+            -DisabledAt (Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledAt') `
+            -LastRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastRunTime') `
+            -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastTaskResult') `
+            -Author (Get-WtcgObjectPropertyValue -InputObject $item -Name 'Author') `
+            -Description (Get-WtcgObjectPropertyValue -InputObject $item -Name 'Description')
     }
 }
 
@@ -312,6 +318,10 @@ function Export-WtcgTaskIdentity {
                 WasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $identity -Name 'WasOriginallyEnabled' -DefaultValue $true)
                 DisabledBySuite      = [bool](Get-WtcgObjectPropertyValue -InputObject $identity -Name 'DisabledBySuite' -DefaultValue $false)
                 DisabledAt           = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'DisabledAt'
+                LastRunTime          = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastRunTime'
+                LastTaskResult       = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastTaskResult'
+                Author               = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'Author'
+                Description          = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'Description'
             })
         }
     }
@@ -1720,7 +1730,7 @@ function ConvertTo-WtcgMailEventSettings {
     Assert-WtcgMailEventSettings -Mail $entries
 
     $result = $disabled
-    $error = $disabled
+    $errorReport = $disabled
 
     foreach ($entry in $entries) {
         $event = ([string](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'event')).Trim().ToLowerInvariant()
@@ -1733,7 +1743,7 @@ function ConvertTo-WtcgMailEventSettings {
             }
 
             'error' {
-                $error = $settings
+                $errorReport = $settings
                 break
             }
         }
@@ -1741,7 +1751,7 @@ function ConvertTo-WtcgMailEventSettings {
 
     [pscustomobject]@{
         Result = $result
-        Error  = $error
+        Error  = $errorReport
     }
 }
 
