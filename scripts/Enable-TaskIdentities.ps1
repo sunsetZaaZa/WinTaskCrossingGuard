@@ -3,6 +3,19 @@ param(
     [Parameter()]
     [string] $IdentityPath,
 
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $JsonlLogPath,
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $RunId,
+
+    [Parameter()]
+    [string] $Operation = 'EnableTaskIdentities',
+
     [Parameter(ValueFromPipeline)]
     [object[]] $TaskIdentity
 )
@@ -33,5 +46,17 @@ end {
         throw "No task identities were provided. Use -IdentityPath or pipe objects with TaskPath and TaskName."
     }
 
-    $buffer | Enable-WtcgTaskIdentity -WhatIf:$WhatIfPreference -Confirm:$false
+    $enabled = @($buffer | Enable-WtcgTaskIdentity -WhatIf:$WhatIfPreference -Confirm:$false)
+
+    if ($enabled.Count -gt 0) {
+        $enabled |
+            Write-WtcgReenableJsonlLog `
+                -Path $JsonlLogPath `
+                -IdentityPath $IdentityPath `
+                -RunId $RunId `
+                -Operation $Operation |
+            Out-Null
+    }
+
+    $enabled
 }

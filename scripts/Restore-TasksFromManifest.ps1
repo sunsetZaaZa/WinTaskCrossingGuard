@@ -18,7 +18,17 @@ param(
     [switch] $DisableLock,
 
     [Parameter()]
-    [switch] $PassThru
+    [switch] $PassThru,
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $JsonlLogPath,
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $RunId
 )
 
 Set-StrictMode -Version Latest
@@ -75,9 +85,30 @@ if ($identities.Count -gt 0) {
     $restored = $identities | Enable-WtcgTaskIdentity -WhatIf:$WhatIfPreference -Confirm:$false
 }
 
+if ($restored.Count -gt 0) {
+    $restored |
+        Write-WtcgReenableJsonlLog `
+            -Path $JsonlLogPath `
+            -ManifestPath $ManifestPath `
+            -RunId $RunId `
+            -Operation 'RestoreTasksFromManifest' |
+        Out-Null
+}
+
 if ($PassThru) {
     $restored
 }
+}
+catch {
+    Write-WtcgErrorJsonlLog `
+        -ErrorRecord $_ `
+        -Path $JsonlLogPath `
+        -Operation 'RestoreTasksFromManifest' `
+        -IdentityOutputPath $ManifestPath `
+        -RunId $RunId |
+        Out-Null
+
+    throw
 }
 finally {
     Exit-WtcgRuntimeLock -Lock $runtimeLock -ErrorAction SilentlyContinue
