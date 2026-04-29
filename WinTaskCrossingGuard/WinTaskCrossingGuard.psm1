@@ -205,11 +205,11 @@ function New-WtcgTaskIdentity {
 
         [Parameter()]
         [AllowNull()]
-        [object] $WasOriginallyEnabled = $null,
+        [bool] $WasOriginallyEnabled = $true,
 
         [Parameter()]
         [AllowNull()]
-        [object] $DisabledBySuite = $false,
+        [bool] $DisabledBySuite = $false,
 
         [Parameter()]
         [AllowNull()]
@@ -234,31 +234,24 @@ function New-WtcgTaskIdentity {
 
     $normalizedPath = Normalize-WtcgTaskPath -TaskPath $TaskPath
     $effectiveOriginalState = if ([string]::IsNullOrWhiteSpace($OriginalState)) { $State } else { $OriginalState }
-    $effectiveWasOriginallyEnabled = if ($null -ne $WasOriginallyEnabled) {
-        [bool]$WasOriginallyEnabled
-    }
-    elseif ([string]::IsNullOrWhiteSpace($effectiveOriginalState)) {
-        $true
-    }
-    else {
-        $effectiveOriginalState -ne 'Disabled'
-    }
+    $effectiveWasOriginallyEnabled = if ([string]::IsNullOrWhiteSpace($effectiveOriginalState)) { $WasOriginallyEnabled } else { $effectiveOriginalState -ne 'Disabled' }
 
     [pscustomObject]@{
-        PSTypeName           = 'WinTaskCrossingGuard.TaskIdentity'
-        TaskPath             = $normalizedPath
-        TaskName             = $TaskName
-        FullName             = "$normalizedPath$TaskName"
-        NextRunTime          = $NextRunTime
-        State                = $State
-        OriginalState        = $effectiveOriginalState
-        WasOriginallyEnabled = [bool]$effectiveWasOriginallyEnabled
-        DisabledBySuite      = [bool]$DisabledBySuite
-        DisabledAt           = $DisabledAt
-        LastRunTime          = $LastRunTime
-        LastTaskResult       = $LastTaskResult
-        Author               = $Author
-        Description          = $Description
+        PSTypeName              = 'WinTaskCrossingGuard.TaskIdentity'
+        TaskPath                = $normalizedPath
+        TaskName                = $TaskName
+        FullName                = "$normalizedPath$TaskName"
+        NextRunTime             = $NextRunTime
+        State                   = $State
+        OriginalState           = $effectiveOriginalState
+        WasOriginallyEnabled    = [bool]$effectiveWasOriginallyEnabled
+        DisabledBySuite         = [bool]$DisabledBySuite
+        DisabledAt              = $DisabledAt
+        LastRunTime             = $LastRunTime
+        LastTaskResult          = $LastTaskResult
+        Author                  = $Author
+        Description             = $Description
+
     }
 }
 
@@ -285,8 +278,8 @@ function Import-WtcgTaskIdentity {
             -NextRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'NextRunTime') `
             -State (Get-WtcgObjectPropertyValue -InputObject $item -Name 'State') `
             -OriginalState (Get-WtcgObjectPropertyValue -InputObject $item -Name 'OriginalState') `
-            -WasOriginallyEnabled (Get-WtcgObjectPropertyValue -InputObject $item -Name 'WasOriginallyEnabled') `
-            -DisabledBySuite (Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledBySuite' -DefaultValue $false) `
+            -WasOriginallyEnabled ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'WasOriginallyEnabled' -DefaultValue $true)) `
+            -DisabledBySuite ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledBySuite' -DefaultValue $false)) `
             -DisabledAt (Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledAt') `
             -LastRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastRunTime') `
             -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastTaskResult') `
@@ -322,8 +315,8 @@ function Export-WtcgTaskIdentity {
                 NextRunTime          = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'NextRunTime'
                 State                = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'State'
                 OriginalState        = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'OriginalState'
-                WasOriginallyEnabled = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'WasOriginallyEnabled'
-                DisabledBySuite      = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'DisabledBySuite' -DefaultValue $false
+                WasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $identity -Name 'WasOriginallyEnabled' -DefaultValue $true)
+                DisabledBySuite      = [bool](Get-WtcgObjectPropertyValue -InputObject $identity -Name 'DisabledBySuite' -DefaultValue $false)
                 DisabledAt           = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'DisabledAt'
                 LastRunTime          = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastRunTime'
                 LastTaskResult       = Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastTaskResult'
@@ -350,6 +343,190 @@ function Export-WtcgTaskIdentity {
             Set-Content -Path $Path -Encoding utf8 -WhatIf:$false
 
         Get-Item -Path $Path
+    }
+}
+
+function Resolve-WtcgRuntimeLockPath {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Path)) {
+        return $Path
+    }
+
+    $basePath = $env:ProgramData
+    if ([string]::IsNullOrWhiteSpace($basePath)) {
+        $basePath = $env:TEMP
+    }
+
+    if ([string]::IsNullOrWhiteSpace($basePath)) {
+        $basePath = [System.IO.Path]::GetTempPath()
+    }
+
+    return (Join-Path $basePath 'WinTaskCrossingGuard\runtime.lock.json')
+}
+
+function New-WtcgRuntimeLockName {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Name = 'Global\WinTaskCrossingGuard'
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        throw 'LockName cannot be empty.'
+    }
+
+    $trimmed = $Name.Trim()
+    if ($trimmed -notmatch '^(Global|Local)\\') {
+        return "Global\$trimmed"
+    }
+
+    return $trimmed
+}
+
+function Save-WtcgRuntimeLockFile {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory)]
+        [string] $Path,
+
+        [Parameter(Mandatory)]
+        [string] $LockName,
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $Metadata
+    )
+
+    $directory = Split-Path -Parent $Path
+    if ($directory -and -not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force -WhatIf:$false | Out-Null
+    }
+
+    $payload = [pscustomobject]@{
+        Kind         = 'WinTaskCrossingGuard.RuntimeLock'
+        Version      = 1
+        LockName     = $LockName
+        HostName     = $env:COMPUTERNAME
+        ProcessId    = $PID
+        StartedAtUtc = [datetime]::UtcNow.ToString('o')
+        UserName     = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        Metadata     = $Metadata
+    }
+
+    if ($PSCmdlet.ShouldProcess($Path, 'Write WinTaskCrossingGuard runtime lock file')) {
+        $payload |
+            ConvertTo-Json -Depth 10 |
+            Set-Content -Path $Path -Encoding utf8 -WhatIf:$false
+    }
+
+    if (Test-Path -LiteralPath $Path) {
+        Get-Item -LiteralPath $Path
+    }
+}
+
+function Enter-WtcgRuntimeLock {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter()]
+        [string] $LockName = 'Global\WinTaskCrossingGuard',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $LockPath,
+
+        [Parameter()]
+        [int] $TimeoutSeconds = 0,
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $Metadata,
+
+        [Parameter()]
+        [switch] $SkipLockFile
+    )
+
+    $normalizedName = New-WtcgRuntimeLockName -Name $LockName
+    $mutex = [System.Threading.Mutex]::new($false, $normalizedName)
+
+    try {
+        $timeout = if ($TimeoutSeconds -lt 0) {
+            [System.Threading.Timeout]::InfiniteTimeSpan
+        }
+        else {
+            [TimeSpan]::FromSeconds($TimeoutSeconds)
+        }
+
+        $acquired = $mutex.WaitOne($timeout)
+        if (-not $acquired) {
+            $message = "Another WinTaskCrossingGuard run is already active on this host using lock '$normalizedName'."
+            $resolvedPath = Resolve-WtcgRuntimeLockPath -Path $LockPath
+            if ($resolvedPath -and (Test-Path -LiteralPath $resolvedPath)) {
+                $message += " Lock file: $resolvedPath"
+            }
+            throw $message
+        }
+
+        $resolvedLockPath = $null
+        if (-not $SkipLockFile) {
+            $resolvedLockPath = Resolve-WtcgRuntimeLockPath -Path $LockPath
+            if (-not [string]::IsNullOrWhiteSpace($resolvedLockPath)) {
+                Save-WtcgRuntimeLockFile -Path $resolvedLockPath -LockName $normalizedName -Metadata $Metadata -WhatIf:$WhatIfPreference | Out-Null
+            }
+        }
+
+        [pscustomobject]@{
+            PSTypeName = 'WinTaskCrossingGuard.RuntimeLock'
+            LockName   = $normalizedName
+            Mutex      = $mutex
+            LockPath   = $resolvedLockPath
+            Acquired   = $true
+        }
+    }
+    catch {
+        $mutex.Dispose()
+        throw
+    }
+}
+
+function Exit-WtcgRuntimeLock {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Lock
+    )
+
+    if ($null -eq $Lock) {
+        return
+    }
+
+    try {
+        if ((Get-WtcgObjectPropertyValue -InputObject $Lock -Name 'Acquired' -DefaultValue $false) -and
+            $null -ne (Get-WtcgObjectPropertyValue -InputObject $Lock -Name 'Mutex')) {
+            $Lock.Mutex.ReleaseMutex()
+        }
+    }
+    finally {
+        if ($null -ne (Get-WtcgObjectPropertyValue -InputObject $Lock -Name 'Mutex')) {
+            $Lock.Mutex.Dispose()
+        }
+
+        $lockPath = Get-WtcgObjectPropertyValue -InputObject $Lock -Name 'LockPath'
+        if (-not [string]::IsNullOrWhiteSpace([string]$lockPath) -and (Test-Path -LiteralPath $lockPath)) {
+            if ($PSCmdlet.ShouldProcess($lockPath, 'Remove WinTaskCrossingGuard runtime lock file')) {
+                Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue -WhatIf:$false
+            }
+        }
     }
 }
 
@@ -826,8 +1003,8 @@ function Find-WtcgTaskInWindow {
                     NextRunTime          = $info.NextRunTime
                     LastRunTime          = $info.LastRunTime
                     LastTaskResult       = $info.LastTaskResult
-                    Author               = Get-WtcgObjectPropertyValue -InputObject $task -Name 'Author'
-                    Description          = Get-WtcgObjectPropertyValue -InputObject $task -Name 'Description'
+                    Author               = $task.Author
+                    Description          = $task.Description
                 }
             }
         }
@@ -869,7 +1046,7 @@ function Disable-WtcgTaskIdentity {
                     -DisabledBySuite $true `
                     -DisabledAt (Get-Date) `
                     -LastRunTime (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastRunTime') `
-                    -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastTaskResult') `
+                    -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'LastTaskResult' -DefaultValue 0) `
                     -Author (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'Author') `
                     -Description (Get-WtcgObjectPropertyValue -InputObject $identity -Name 'Description')
             }
@@ -960,8 +1137,8 @@ function Save-WtcgManifest {
                 FullName             = "$normalizedPath$($entry.TaskName)"
                 State                = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'State'
                 OriginalState        = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'OriginalState' -DefaultValue (Get-WtcgObjectPropertyValue -InputObject $entry -Name 'State')
-                WasOriginallyEnabled = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'WasOriginallyEnabled'
-                DisabledBySuite      = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'DisabledBySuite' -DefaultValue $false
+                WasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'WasOriginallyEnabled' -DefaultValue $true)
+                DisabledBySuite      = [bool](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'DisabledBySuite' -DefaultValue $false)
                 DisabledAt           = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'DisabledAt'
                 NextRunTime          = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'NextRunTime'
                 LastRunTime          = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'LastRunTime'
@@ -1553,7 +1730,7 @@ function ConvertTo-WtcgMailEventSettings {
     Assert-WtcgMailEventSettings -Mail $entries
 
     $result = $disabled
-    $error = $disabled
+    $errorReport = $disabled
 
     foreach ($entry in $entries) {
         $event = ([string](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'event')).Trim().ToLowerInvariant()
@@ -1566,7 +1743,7 @@ function ConvertTo-WtcgMailEventSettings {
             }
 
             'error' {
-                $error = $settings
+                $errorReport = $settings
                 break
             }
         }
@@ -1574,7 +1751,7 @@ function ConvertTo-WtcgMailEventSettings {
 
     [pscustomobject]@{
         Result = $result
-        Error  = $error
+        Error  = $errorReport
     }
 }
 
@@ -2411,13 +2588,30 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         [switch] $FailOnErrorEmail,
 
         [Parameter()]
+        [string] $LockName = 'Global\WinTaskCrossingGuard',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $LockPath,
+
+        [Parameter()]
+        [int] $LockTimeoutSeconds = 0,
+
+        [Parameter()]
+        [switch] $DisableLock,
+
+        [Parameter()]
         [switch] $PassThru
     )
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
+    $runtimeLock = $null
 
     trap {
+        Exit-WtcgRuntimeLock -Lock $runtimeLock -ErrorAction SilentlyContinue
+
         Write-Host "WinTaskCrossingGuard error: $($_.Exception.Message)" -ForegroundColor Red
 
         $errorXmlLogFile = Write-WtcgErrorXmlLog `
@@ -2477,6 +2671,22 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
 
     $window = Resolve-WtcgWindow -Start $Start -End $End
 
+    if (-not $DisableLock) {
+        $effectiveLockPath = Resolve-WtcgRuntimeLockPath -Path $LockPath
+        $runtimeLock = Enter-WtcgRuntimeLock `
+            -LockName $LockName `
+            -LockPath $effectiveLockPath `
+            -TimeoutSeconds $LockTimeoutSeconds `
+            -SkipLockFile:$WhatIfPreference `
+            -Metadata @{
+                Operation = 'DisableTasksInWindowAndScheduleReenable'
+                WindowStart = $window.Start
+                WindowEnd = $window.End
+                IdentityOutputPath = $IdentityOutputPath
+                ReenableAt = $ReenableAt
+            }
+    }
+
     $selection = $null
     if (-not [string]::IsNullOrWhiteSpace($SelectionPath)) {
         $selection = Import-WtcgTaskSelection -Path $SelectionPath
@@ -2499,6 +2709,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
 
     if ($taskIdentities.Count -eq 0) {
         Write-Host "No tasks found inside $($window.Start) -> $($window.End)."
+        Exit-WtcgRuntimeLock -Lock $runtimeLock
+        $runtimeLock = $null
         return
     }
 
@@ -2659,7 +2871,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     $result = [pscustomobject]@{
         WindowStart           = $window.Start
         WindowEnd             = $window.End
-        DisabledTaskCount     = $taskIdentities.Count
+        DisabledTaskCount     = $disabledTaskIdentities.Count
         IdentityOutputPath    = $identityFile.FullName
         XmlLogPath            = $xmlLogFile.FullName
         ReenableAt            = $ReenableAt
@@ -2675,5 +2887,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     if ($PassThru) {
         $result
     }
+
+    Exit-WtcgRuntimeLock -Lock $runtimeLock
+    $runtimeLock = $null
 }
 

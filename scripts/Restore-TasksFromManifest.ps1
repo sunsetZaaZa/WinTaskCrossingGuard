@@ -4,6 +4,20 @@ param(
     [string] $ManifestPath,
 
     [Parameter()]
+    [string] $LockName = 'Global\WinTaskCrossingGuard',
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $LockPath,
+
+    [Parameter()]
+    [int] $LockTimeoutSeconds = 0,
+
+    [Parameter()]
+    [switch] $DisableLock,
+
+    [Parameter()]
     [switch] $PassThru
 )
 
@@ -11,6 +25,21 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot '..\WinTaskCrossingGuard\WinTaskCrossingGuard.psd1') -Force
+
+$runtimeLock = $null
+try {
+    if (-not $DisableLock) {
+        $effectiveLockPath = Resolve-WtcgRuntimeLockPath -Path $LockPath
+        $runtimeLock = Enter-WtcgRuntimeLock `
+            -LockName $LockName `
+            -LockPath $effectiveLockPath `
+            -TimeoutSeconds $LockTimeoutSeconds `
+            -SkipLockFile:$WhatIfPreference `
+            -Metadata @{
+                Operation = 'RestoreTasksFromManifest'
+                ManifestPath = $ManifestPath
+            }
+    }
 
 if (-not (Test-Path -Path $ManifestPath)) {
     throw "Manifest not found: $ManifestPath"
@@ -48,4 +77,8 @@ if ($identities.Count -gt 0) {
 
 if ($PassThru) {
     $restored
+}
+}
+finally {
+    Exit-WtcgRuntimeLock -Lock $runtimeLock -ErrorAction SilentlyContinue
 }

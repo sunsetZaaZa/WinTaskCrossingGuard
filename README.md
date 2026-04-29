@@ -77,12 +77,15 @@ You can change the default for string entries or object entries that omit `recur
 
 ## Core identity object
 
-The suite uses a lightweight identity object:
+The suite uses a lightweight identity object. Rollback manifests extend it with the original state and suite-disable marker so tasks that were already disabled stay disabled:
 
 ```powershell
 [pscustomobject]@{
   TaskPath = "\MyCompany\"
   TaskName = "NightlyBackup"
+  OriginalState = "Ready"
+  WasOriginallyEnabled = $true
+  DisabledBySuite = $true
 }
 ```
 
@@ -112,7 +115,7 @@ $tasks | Format-Table TaskPath, TaskName, NextRunTime
   -Start "22:00" `
   -End "06:00" `
   -SelectionPath .\task-selection.example.json `
-  -IdentityOutputPath .\matched-task-identities.json
+  -ManifestPath .\rollback-manifest.json
 ```
 
 ## Return identities while disabling
@@ -705,3 +708,31 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardTests
 ```
 
 The root scripts are convenience wrappers that call the matching scripts under `scripts\`.
+
+## Runtime lock / mutex
+
+WinTaskCrossingGuard now uses a named Windows mutex to prevent two executions from mutating scheduled tasks on the same host at the same time. The default lock is:
+
+```powershell
+Global\WinTaskCrossingGuard
+```
+
+The disable and restore workflows also write a diagnostic lock file by default:
+
+```powershell
+$env:ProgramData\WinTaskCrossingGuard\runtime.lock.json
+```
+
+The mutex is the source of truth and is released automatically by Windows if the PowerShell process exits. The lock file is only a breadcrumb showing the owning process, host, operation, and related paths.
+
+Useful parameters:
+
+```powershell
+-LockName 'Global\WinTaskCrossingGuard'
+-LockPath 'C:\ProgramData\WinTaskCrossingGuard\runtime.lock.json'
+-LockTimeoutSeconds 0
+-DisableLock
+```
+
+`-LockTimeoutSeconds 0` fails immediately if another run is active. Use a positive value to wait, or `-1` to wait indefinitely. `-DisableLock` is available for tests and advanced manual recovery only.
+

@@ -84,6 +84,20 @@ param(
     [switch] $FailOnErrorEmail,
 
     [Parameter()]
+    [string] $LockName = 'Global\WinTaskCrossingGuard',
+
+    [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $LockPath,
+
+    [Parameter()]
+    [int] $LockTimeoutSeconds = 0,
+
+    [Parameter()]
+    [switch] $DisableLock,
+
+    [Parameter()]
     [string] $IdentityOutputPath,
 
     [Parameter()]
@@ -98,6 +112,8 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot '..\WinTaskCrossingGuard\WinTaskCrossingGuard.psd1') -Force
 
+$runtimeLock = $null
+
 # WinTaskCrossingGuard notification try/catch wrapper
 try {
 $resultMailSettings = ConvertTo-WtcgMailSettings -Mail $null
@@ -106,6 +122,22 @@ $xmlLogFile = $null
 
 
 $window = Resolve-WtcgWindow -Start $Start -End $End
+
+if (-not $DisableLock) {
+    $effectiveLockPath = Resolve-WtcgRuntimeLockPath -Path $LockPath
+    $runtimeLock = Enter-WtcgRuntimeLock `
+        -LockName $LockName `
+        -LockPath $effectiveLockPath `
+        -TimeoutSeconds $LockTimeoutSeconds `
+        -SkipLockFile:$WhatIfPreference `
+        -Metadata @{
+            Operation = 'DisableTasksInWindow'
+            WindowStart = $window.Start
+            WindowEnd = $window.End
+            ManifestPath = $ManifestPath
+            IdentityOutputPath = $IdentityOutputPath
+        }
+}
 
 $selection = $null
 if (-not [string]::IsNullOrWhiteSpace($SelectionPath)) {
@@ -129,6 +161,8 @@ $matches = @(
 
 if ($matches.Count -eq 0) {
     Write-Host "No enabled scheduled tasks have NextRunTime inside $($window.Start) -> $($window.End) after selection filtering."
+    Exit-WtcgRuntimeLock -Lock $runtimeLock
+    $runtimeLock = $null
     return
 }
 
@@ -225,8 +259,13 @@ if ($ReturnTaskIdentity -or $PassThru) {
     $rollbackIdentities
 }
 
+Exit-WtcgRuntimeLock -Lock $runtimeLock
+$runtimeLock = $null
+
 }
 catch {
+    Exit-WtcgRuntimeLock -Lock $runtimeLock -ErrorAction SilentlyContinue
+
     Write-Host "WinTaskCrossingGuard error: $($_.Exception.Message)" -ForegroundColor Red
 
     $errorXmlLogFile = Write-WtcgErrorXmlLog `
