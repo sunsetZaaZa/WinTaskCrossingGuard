@@ -3522,6 +3522,409 @@ function Get-WtcgMailAttachments {
     return $attachments
 }
 
+
+function ConvertTo-WtcgBoolean {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Value,
+
+        [Parameter()]
+        [bool] $Default = $false
+    )
+
+    if ($null -eq $Value) { return $Default }
+    if ($Value -is [bool]) { return [bool]$Value }
+
+    $text = ([string]$Value).Trim()
+    if ([string]::IsNullOrWhiteSpace($text)) { return $Default }
+
+    switch -Regex ($text.ToLowerInvariant()) {
+        '^(1|true|yes|y|on|enabled)$' { return $true }
+        '^(0|false|no|n|off|disabled)$' { return $false }
+        default { throw "Invalid boolean value '$Value'. Expected true/false, yes/no, on/off, or 1/0." }
+    }
+}
+
+function ConvertTo-WtcgStringList {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Value,
+
+        [Parameter()]
+        [string[]] $Default = @()
+    )
+
+    if ($null -eq $Value) { return @($Default) }
+
+    if ($Value -is [array]) {
+        return @($Value | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    }
+
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) { return @($Default) }
+
+    @($text -split '[,;]' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+function Get-WtcgEnvValue {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable] $Values,
+
+        [Parameter(Mandatory)]
+        [string] $Name,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Default = $null
+    )
+
+    if ($Values.ContainsKey($Name)) { return $Values[$Name] }
+    return $Default
+}
+
+function ConvertTo-WtcgWebhookTargetSettings {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('teams', 'slack', 'discord')]
+        [string] $Provider,
+
+        [Parameter(Mandatory)]
+        [hashtable] $EnvValues,
+
+        [Parameter()]
+        [bool] $GlobalEnabled = $true,
+
+        [Parameter()]
+        [int] $DefaultTimeoutSeconds = 15,
+
+        [Parameter()]
+        [bool] $DefaultFailOnError = $false
+    )
+
+    $providerToken = $Provider.ToUpperInvariant()
+    $url = [string](Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_URL" -Default '')
+    $enabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_ENABLED" -Default $false) -Default $false
+    $events = ConvertTo-WtcgStringList -Value (Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_EVENTS" -Default 'result,error') -Default @('result', 'error')
+    $failOnError = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_FAIL_ON_ERROR" -Default $DefaultFailOnError) -Default $DefaultFailOnError
+
+    $timeoutSeconds = $DefaultTimeoutSeconds
+    $rawTimeout = Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_TIMEOUT_SECONDS" -Default $DefaultTimeoutSeconds
+    if (-not [int]::TryParse([string]$rawTimeout, [ref]$timeoutSeconds) -or $timeoutSeconds -le 0) {
+        throw "Invalid WTCG_WEBHOOK_${providerToken}_TIMEOUT_SECONDS value '$rawTimeout'. Expected a positive whole number."
+    }
+
+    [pscustomobject]@{
+        Provider       = $Provider
+        Enabled        = ($GlobalEnabled -and $enabled)
+        Url            = $url
+        Events         = @($events | ForEach-Object { $_.ToLowerInvariant() })
+        TimeoutSeconds = $timeoutSeconds
+        FailOnError    = $failOnError
+    }
+}
+
+function Get-WtcgWebhookSettings {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $EnvPath = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env')
+    )
+
+    $envValues = Import-WtcgDotEnv -Path $EnvPath
+    $globalEnabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_WEBHOOKS_ENABLED' -Default $true) -Default $true
+    $globalFailOnError = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_WEBHOOK_FAIL_ON_ERROR' -Default $false) -Default $false
+
+    $timeoutSeconds = 15
+    $rawTimeout = Get-WtcgEnvValue -Values $envValues -Name 'WTCG_WEBHOOK_TIMEOUT_SECONDS' -Default 15
+    if (-not [int]::TryParse([string]$rawTimeout, [ref]$timeoutSeconds) -or $timeoutSeconds -le 0) {
+        throw "Invalid WTCG_WEBHOOK_TIMEOUT_SECONDS value '$rawTimeout'. Expected a positive whole number."
+    }
+
+    $targets = @(
+        ConvertTo-WtcgWebhookTargetSettings -Provider 'teams' -EnvValues $envValues -GlobalEnabled $globalEnabled -DefaultTimeoutSeconds $timeoutSeconds -DefaultFailOnError $globalFailOnError
+        ConvertTo-WtcgWebhookTargetSettings -Provider 'slack' -EnvValues $envValues -GlobalEnabled $globalEnabled -DefaultTimeoutSeconds $timeoutSeconds -DefaultFailOnError $globalFailOnError
+        ConvertTo-WtcgWebhookTargetSettings -Provider 'discord' -EnvValues $envValues -GlobalEnabled $globalEnabled -DefaultTimeoutSeconds $timeoutSeconds -DefaultFailOnError $globalFailOnError
+    )
+
+    [pscustomobject]@{
+        Enabled        = $globalEnabled
+        EnvPath        = $EnvPath
+        TimeoutSeconds = $timeoutSeconds
+        FailOnError    = $globalFailOnError
+        Targets        = @($targets)
+    }
+}
+
+function Test-WtcgWebhookTargetReady {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Target,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $NotificationEvent
+    )
+
+    if ($null -eq $Target) { return $false }
+    if (-not [bool](Get-WtcgObjectPropertyValue -InputObject $Target -Name 'Enabled' -DefaultValue $false)) { return $false }
+
+    $url = [string](Get-WtcgObjectPropertyValue -InputObject $Target -Name 'Url')
+    if ([string]::IsNullOrWhiteSpace($url)) { return $false }
+
+    if (-not [string]::IsNullOrWhiteSpace($NotificationEvent)) {
+        $events = @(Get-WtcgObjectPropertyValue -InputObject $Target -Name 'Events' -DefaultValue @('result', 'error'))
+        $eventNames = @($events | ForEach-Object { ([string]$_).ToLowerInvariant() })
+        if ($events.Count -gt 0 -and $eventNames -notcontains $NotificationEvent.ToLowerInvariant()) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function New-WtcgWebhookNotificationText {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Subject = 'WinTaskCrossingGuard notification',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Operation,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Status,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $XmlLogPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlLogPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $IdentityOutputPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ErrorMessage
+    )
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("**$Subject**")
+    if (-not [string]::IsNullOrWhiteSpace($Status)) { $lines.Add("Status: $Status") }
+    if (-not [string]::IsNullOrWhiteSpace($Operation)) { $lines.Add("Operation: $Operation") }
+    if (-not [string]::IsNullOrWhiteSpace($RunId)) { $lines.Add("Run ID: $RunId") }
+    if (-not [string]::IsNullOrWhiteSpace($RunFolderPath)) { $lines.Add("Run folder: $RunFolderPath") }
+    if (-not [string]::IsNullOrWhiteSpace($XmlLogPath)) { $lines.Add("XML log: $XmlLogPath") }
+    if (-not [string]::IsNullOrWhiteSpace($JsonlLogPath)) { $lines.Add("JSONL log: $JsonlLogPath") }
+    if (-not [string]::IsNullOrWhiteSpace($IdentityOutputPath)) { $lines.Add("Identity/manifest: $IdentityOutputPath") }
+    if (-not [string]::IsNullOrWhiteSpace($ErrorMessage)) { $lines.Add("Error: $ErrorMessage") }
+
+    $lines -join "`n"
+}
+
+function New-WtcgWebhookPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('teams', 'slack', 'discord')]
+        [string] $Provider,
+
+        [Parameter(Mandatory)]
+        [string] $Text
+    )
+
+    switch ($Provider) {
+        'teams' {
+            [ordered]@{
+                '@type'    = 'MessageCard'
+                '@context' = 'https://schema.org/extensions'
+                summary    = 'WinTaskCrossingGuard notification'
+                text       = $Text
+            }
+        }
+        'slack' { [ordered]@{ text = $Text } }
+        'discord' { [ordered]@{ content = $Text } }
+    }
+}
+
+function Invoke-WtcgWebhookRestMethod {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $Uri,
+
+        [Parameter(Mandatory)]
+        [string] $Body,
+
+        [Parameter()]
+        [int] $TimeoutSeconds = 15
+    )
+
+    Invoke-RestMethod -Uri $Uri -Method Post -ContentType 'application/json; charset=utf-8' -Body $Body -TimeoutSec $TimeoutSeconds
+}
+
+function Send-WtcgWebhookNotification {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object] $Target,
+
+        [Parameter(Mandatory)]
+        [string] $Text
+    )
+
+    $provider = [string](Get-WtcgObjectPropertyValue -InputObject $Target -Name 'Provider')
+    $url = [string](Get-WtcgObjectPropertyValue -InputObject $Target -Name 'Url')
+    $timeoutSeconds = [int](Get-WtcgObjectPropertyValue -InputObject $Target -Name 'TimeoutSeconds' -DefaultValue 15)
+
+    if ([string]::IsNullOrWhiteSpace($provider)) { throw 'Webhook target provider cannot be empty.' }
+    if ([string]::IsNullOrWhiteSpace($url)) { throw "Webhook target '$provider' URL cannot be empty." }
+
+    $payload = New-WtcgWebhookPayload -Provider $provider -Text $Text
+    $json = $payload | ConvertTo-Json -Depth 10 -Compress
+    $response = Invoke-WtcgWebhookRestMethod -Uri $url -Body $json -TimeoutSeconds $timeoutSeconds
+
+    [pscustomobject]@{
+        Sent           = $true
+        Provider       = $provider
+        Url            = $url
+        TimeoutSeconds = $timeoutSeconds
+        Payload        = $payload
+        Response       = $response
+    }
+}
+
+function Send-WtcgWebhookNotificationsFromEnv {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [ValidateSet('result', 'error', 'notification')]
+        [string] $NotificationEvent = 'notification',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $EnvPath = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env'),
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Subject = 'WinTaskCrossingGuard notification',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Operation,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Status,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $XmlLogPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlLogPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $IdentityOutputPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ErrorMessage
+    )
+
+    $settings = Get-WtcgWebhookSettings -EnvPath $EnvPath
+    $results = [System.Collections.Generic.List[object]]::new()
+    $targets = @($settings.Targets | Where-Object { Test-WtcgWebhookTargetReady -Target $_ -NotificationEvent $NotificationEvent })
+
+    if ($targets.Count -eq 0) { return @() }
+
+    $text = New-WtcgWebhookNotificationText -Subject $Subject -Operation $Operation -Status $Status -RunId $RunId -RunFolderPath $RunFolderPath -XmlLogPath $XmlLogPath -JsonlLogPath $JsonlLogPath -IdentityOutputPath $IdentityOutputPath -ErrorMessage $ErrorMessage
+
+    foreach ($target in $targets) {
+        $provider = [string]$target.Provider
+        try {
+            $sendResult = Send-WtcgWebhookNotification -Target $target -Text $text
+            $results.Add($sendResult)
+
+            try {
+                Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'sent' -Channel "webhook:$provider" -Subject $Subject -To @($provider) -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null
+            }
+            catch { Write-Verbose "Failed to write WinTaskCrossingGuard webhook notification JSONL event: $($_.Exception.Message)" }
+        }
+        catch {
+            $errorMessage = $_.Exception.Message
+            $failure = [pscustomobject]@{ Sent = $false; Provider = $provider; Url = $target.Url; Error = $errorMessage }
+            $results.Add($failure)
+
+            try {
+                Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'failed' -Channel "webhook:$provider" -Subject $Subject -To @($provider) -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -ErrorMessage $errorMessage -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null
+            }
+            catch { Write-Verbose "Failed to write WinTaskCrossingGuard webhook notification JSONL event: $($_.Exception.Message)" }
+
+            Write-Warning "Failed to send WinTaskCrossingGuard $provider webhook notification: $errorMessage"
+            if ([bool]$target.FailOnError -or [bool]$settings.FailOnError) { throw }
+        }
+    }
+
+    @($results)
+}
+
+
 function Send-WtcgLogGeneratedNotificationFromSettings {
     [CmdletBinding()]
     param(
@@ -3559,83 +3962,30 @@ function Send-WtcgLogGeneratedNotificationFromSettings {
         [string] $Subject = 'WinTaskCrossingGuard XML log generated'
     )
 
-    if (-not (Test-WtcgMailSettingsReady -MailSettings $MailSettings)) {
-        return
-    }
+    Send-WtcgWebhookNotificationsFromEnv -NotificationEvent 'result' -Subject $Subject -Operation $Operation -Status 'sent' -RunId $RunId -RunFolderPath $RunFolderPath -XmlLogPath $XmlLogPath -JsonlLogPath $JsonlLogPath -IdentityOutputPath $IdentityOutputPath | Out-Null
+
+    if (-not (Test-WtcgMailSettingsReady -MailSettings $MailSettings)) { return }
 
     try {
-        $attachments = Get-WtcgMailAttachments `
-            -MailSettings $MailSettings `
-            -XmlLogPath $XmlLogPath `
-            -IdentityOutputPath $IdentityOutputPath
+        $attachments = Get-WtcgMailAttachments -MailSettings $MailSettings -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath
+        $body = New-WtcgLogGeneratedMailBody -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -Operation $Operation -RunId $RunId -RunFolderPath $RunFolderPath
 
-        $body = New-WtcgLogGeneratedMailBody `
-            -XmlLogPath $XmlLogPath `
-            -IdentityOutputPath $IdentityOutputPath `
-            -Operation $Operation `
-            -RunId $RunId `
-            -RunFolderPath $RunFolderPath
+        $sendResult = Send-WtcgMailNotification -SmtpServer $MailSettings.SmtpServer -Port $MailSettings.Port -From $MailSettings.From -To $MailSettings.To -Cc $MailSettings.Cc -Subject $Subject -Body $body -AttachmentPath $attachments -UseSsl:$MailSettings.UseSsl
 
-        $sendResult = Send-WtcgMailNotification `
-            -SmtpServer $MailSettings.SmtpServer `
-            -Port $MailSettings.Port `
-            -From $MailSettings.From `
-            -To $MailSettings.To `
-            -Cc $MailSettings.Cc `
-            -Subject $Subject `
-            -Body $body `
-            -AttachmentPath $attachments `
-            -UseSsl:$MailSettings.UseSsl
-
-        try {
-            Write-WtcgNotificationJsonlLog `
-                -Path $JsonlLogPath `
-                -Operation $Operation `
-                -Status 'sent' `
-                -Subject $Subject `
-                -To $MailSettings.To `
-                -Cc $MailSettings.Cc `
-                -SmtpServer $MailSettings.SmtpServer `
-                -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath `
-                -RunId $RunId `
-                -RunFolderPath $RunFolderPath |
-                Out-Null
-        }
-        catch {
-            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
-        }
+        try { Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'sent' -Subject $Subject -To $MailSettings.To -Cc $MailSettings.Cc -SmtpServer $MailSettings.SmtpServer -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null }
+        catch { Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)" }
 
         $sendResult
     }
     catch {
-        try {
-            Write-WtcgNotificationJsonlLog `
-                -Path $JsonlLogPath `
-                -Operation $Operation `
-                -Status 'failed' `
-                -Subject $Subject `
-                -To $MailSettings.To `
-                -Cc $MailSettings.Cc `
-                -SmtpServer $MailSettings.SmtpServer `
-                -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath `
-                -ErrorMessage $_.Exception.Message `
-                -RunId $RunId `
-                -RunFolderPath $RunFolderPath |
-                Out-Null
-        }
-        catch {
-            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
-        }
+        try { Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'failed' -Subject $Subject -To $MailSettings.To -Cc $MailSettings.Cc -SmtpServer $MailSettings.SmtpServer -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -ErrorMessage $_.Exception.Message -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null }
+        catch { Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)" }
 
         Write-Warning "Failed to send WinTaskCrossingGuard log-generated email: $($_.Exception.Message)"
-
-        if ($MailSettings.FailOnEmailError) {
-            throw
-        }
+        if ($MailSettings.FailOnEmailError) { throw }
     }
 }
+
 
 function Send-WtcgErrorNotificationFromSettings {
     [CmdletBinding()]
@@ -3679,82 +4029,28 @@ function Send-WtcgErrorNotificationFromSettings {
         [string] $Subject = 'WinTaskCrossingGuard error'
     )
 
-    if (-not (Test-WtcgMailSettingsReady -MailSettings $MailSettings)) {
-        return
-    }
+    $webhookErrorMessage = if ($null -ne $ErrorRecord.Exception) { $ErrorRecord.Exception.Message } else { [string]$ErrorRecord }
+    Send-WtcgWebhookNotificationsFromEnv -NotificationEvent 'error' -Subject $Subject -Operation $Operation -Status 'failed' -RunId $RunId -RunFolderPath $RunFolderPath -XmlLogPath $XmlLogPath -JsonlLogPath $JsonlLogPath -IdentityOutputPath $IdentityOutputPath -ErrorMessage $webhookErrorMessage | Out-Null
+
+    if (-not (Test-WtcgMailSettingsReady -MailSettings $MailSettings)) { return }
 
     try {
-        $attachments = Get-WtcgMailAttachments `
-            -MailSettings $MailSettings `
-            -XmlLogPath $XmlLogPath `
-            -IdentityOutputPath $IdentityOutputPath
+        $attachments = Get-WtcgMailAttachments -MailSettings $MailSettings -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath
+        $body = New-WtcgErrorMailBody -ErrorRecord $ErrorRecord -Operation $Operation -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -RunId $RunId -RunFolderPath $RunFolderPath
 
-        $body = New-WtcgErrorMailBody `
-            -ErrorRecord $ErrorRecord `
-            -Operation $Operation `
-            -XmlLogPath $XmlLogPath `
-            -IdentityOutputPath $IdentityOutputPath `
-            -RunId $RunId `
-            -RunFolderPath $RunFolderPath
+        $sendResult = Send-WtcgMailNotification -SmtpServer $MailSettings.SmtpServer -Port $MailSettings.Port -From $MailSettings.From -To $MailSettings.To -Cc $MailSettings.Cc -Subject $Subject -Body $body -AttachmentPath $attachments -UseSsl:$MailSettings.UseSsl
 
-        $sendResult = Send-WtcgMailNotification `
-            -SmtpServer $MailSettings.SmtpServer `
-            -Port $MailSettings.Port `
-            -From $MailSettings.From `
-            -To $MailSettings.To `
-            -Cc $MailSettings.Cc `
-            -Subject $Subject `
-            -Body $body `
-            -AttachmentPath $attachments `
-            -UseSsl:$MailSettings.UseSsl
-
-        try {
-            Write-WtcgNotificationJsonlLog `
-                -Path $JsonlLogPath `
-                -Operation $Operation `
-                -Status 'sent' `
-                -Subject $Subject `
-                -To $MailSettings.To `
-                -Cc $MailSettings.Cc `
-                -SmtpServer $MailSettings.SmtpServer `
-                -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath `
-                -RunId $RunId `
-                -RunFolderPath $RunFolderPath |
-                Out-Null
-        }
-        catch {
-            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
-        }
+        try { Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'sent' -Subject $Subject -To $MailSettings.To -Cc $MailSettings.Cc -SmtpServer $MailSettings.SmtpServer -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null }
+        catch { Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)" }
 
         $sendResult
     }
     catch {
-        try {
-            Write-WtcgNotificationJsonlLog `
-                -Path $JsonlLogPath `
-                -Operation $Operation `
-                -Status 'failed' `
-                -Subject $Subject `
-                -To $MailSettings.To `
-                -Cc $MailSettings.Cc `
-                -SmtpServer $MailSettings.SmtpServer `
-                -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath `
-                -ErrorMessage $_.Exception.Message `
-                -RunId $RunId `
-                -RunFolderPath $RunFolderPath |
-                Out-Null
-        }
-        catch {
-            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
-        }
+        try { Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'failed' -Subject $Subject -To $MailSettings.To -Cc $MailSettings.Cc -SmtpServer $MailSettings.SmtpServer -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -ErrorMessage $_.Exception.Message -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null }
+        catch { Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)" }
 
         Write-Warning "Failed to send WinTaskCrossingGuard error email: $($_.Exception.Message)"
-
-        if ($MailSettings.FailOnEmailError) {
-            throw
-        }
+        if ($MailSettings.FailOnEmailError) { throw }
     }
 }
 
@@ -4053,6 +4349,7 @@ Fully qualified error id:
 "@
 }
 
+
 function Send-WtcgLogGeneratedNotification {
     [CmdletBinding()]
     param(
@@ -4113,81 +4410,29 @@ function Send-WtcgLogGeneratedNotification {
         [switch] $FailOnEmailError
     )
 
+    Send-WtcgWebhookNotificationsFromEnv -NotificationEvent 'result' -Subject $Subject -Operation $Operation -Status 'sent' -RunId $RunId -RunFolderPath $RunFolderPath -XmlLogPath $XmlLogPath -JsonlLogPath $JsonlLogPath -IdentityOutputPath $IdentityOutputPath | Out-Null
+
     try {
         $attachments = @()
+        if ($AttachXmlLog -and -not [string]::IsNullOrWhiteSpace($XmlLogPath) -and (Test-Path -LiteralPath $XmlLogPath)) { $attachments += $XmlLogPath }
 
-        if ($AttachXmlLog -and -not [string]::IsNullOrWhiteSpace($XmlLogPath) -and (Test-Path -LiteralPath $XmlLogPath)) {
-            $attachments += $XmlLogPath
-        }
+        $body = New-WtcgLogGeneratedMailBody -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -Operation $Operation -RunId $RunId -RunFolderPath $RunFolderPath
+        $sendResult = Send-WtcgMailNotification -SmtpServer $SmtpServer -Port $Port -From $From -To $To -Cc $Cc -Subject $Subject -Body $body -AttachmentPath $attachments -UseSsl:$UseSsl -Credential $Credential
 
-        $body = New-WtcgLogGeneratedMailBody `
-            -XmlLogPath $XmlLogPath `
-            -IdentityOutputPath $IdentityOutputPath `
-            -Operation $Operation `
-            -RunId $RunId `
-            -RunFolderPath $RunFolderPath
-
-        $sendResult = Send-WtcgMailNotification `
-            -SmtpServer $SmtpServer `
-            -Port $Port `
-            -From $From `
-            -To $To `
-            -Cc $Cc `
-            -Subject $Subject `
-            -Body $body `
-            -AttachmentPath $attachments `
-            -UseSsl:$UseSsl `
-            -Credential $Credential
-
-        try {
-            Write-WtcgNotificationJsonlLog `
-                -Path $JsonlLogPath `
-                -Operation $Operation `
-                -Status 'sent' `
-                -Subject $Subject `
-                -To $To `
-                -Cc $Cc `
-                -SmtpServer $SmtpServer `
-                -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath `
-                -RunId $RunId `
-                -RunFolderPath $RunFolderPath |
-                Out-Null
-        }
-        catch {
-            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
-        }
+        try { Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'sent' -Subject $Subject -To $To -Cc $Cc -SmtpServer $SmtpServer -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null }
+        catch { Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)" }
 
         $sendResult
     }
     catch {
-        try {
-            Write-WtcgNotificationJsonlLog `
-                -Path $JsonlLogPath `
-                -Operation $Operation `
-                -Status 'failed' `
-                -Subject $Subject `
-                -To $To `
-                -Cc $Cc `
-                -SmtpServer $SmtpServer `
-                -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath `
-                -ErrorMessage $_.Exception.Message `
-                -RunId $RunId `
-                -RunFolderPath $RunFolderPath |
-                Out-Null
-        }
-        catch {
-            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
-        }
+        try { Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'failed' -Subject $Subject -To $To -Cc $Cc -SmtpServer $SmtpServer -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -ErrorMessage $_.Exception.Message -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null }
+        catch { Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)" }
 
         Write-Warning "Failed to send WinTaskCrossingGuard log-generated email: $($_.Exception.Message)"
-
-        if ($FailOnEmailError) {
-            throw
-        }
+        if ($FailOnEmailError) { throw }
     }
 }
+
 
 function Send-WtcgErrorNotification {
     [CmdletBinding()]
@@ -4254,83 +4499,29 @@ function Send-WtcgErrorNotification {
         [switch] $FailOnEmailError
     )
 
+    $webhookErrorMessage = if ($null -ne $ErrorRecord.Exception) { $ErrorRecord.Exception.Message } else { [string]$ErrorRecord }
+    Send-WtcgWebhookNotificationsFromEnv -NotificationEvent 'error' -Subject $Subject -Operation $Operation -Status 'failed' -RunId $RunId -RunFolderPath $RunFolderPath -XmlLogPath $XmlLogPath -JsonlLogPath $JsonlLogPath -IdentityOutputPath $IdentityOutputPath -ErrorMessage $webhookErrorMessage | Out-Null
+
     try {
         $attachments = @()
+        if ($AttachXmlLog -and -not [string]::IsNullOrWhiteSpace($XmlLogPath) -and (Test-Path -LiteralPath $XmlLogPath)) { $attachments += $XmlLogPath }
 
-        if ($AttachXmlLog -and -not [string]::IsNullOrWhiteSpace($XmlLogPath) -and (Test-Path -LiteralPath $XmlLogPath)) {
-            $attachments += $XmlLogPath
-        }
+        $body = New-WtcgErrorMailBody -ErrorRecord $ErrorRecord -Operation $Operation -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -RunId $RunId -RunFolderPath $RunFolderPath
+        $sendResult = Send-WtcgMailNotification -SmtpServer $SmtpServer -Port $Port -From $From -To $To -Cc $Cc -Subject $Subject -Body $body -AttachmentPath $attachments -UseSsl:$UseSsl -Credential $Credential
 
-        $body = New-WtcgErrorMailBody `
-            -ErrorRecord $ErrorRecord `
-            -Operation $Operation `
-            -XmlLogPath $XmlLogPath `
-            -IdentityOutputPath $IdentityOutputPath `
-            -RunId $RunId `
-            -RunFolderPath $RunFolderPath
-
-        $sendResult = Send-WtcgMailNotification `
-            -SmtpServer $SmtpServer `
-            -Port $Port `
-            -From $From `
-            -To $To `
-            -Cc $Cc `
-            -Subject $Subject `
-            -Body $body `
-            -AttachmentPath $attachments `
-            -UseSsl:$UseSsl `
-            -Credential $Credential
-
-        try {
-            Write-WtcgNotificationJsonlLog `
-                -Path $JsonlLogPath `
-                -Operation $Operation `
-                -Status 'sent' `
-                -Subject $Subject `
-                -To $To `
-                -Cc $Cc `
-                -SmtpServer $SmtpServer `
-                -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath `
-                -RunId $RunId `
-                -RunFolderPath $RunFolderPath |
-                Out-Null
-        }
-        catch {
-            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
-        }
+        try { Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'sent' -Subject $Subject -To $To -Cc $Cc -SmtpServer $SmtpServer -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null }
+        catch { Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)" }
 
         $sendResult
     }
     catch {
-        try {
-            Write-WtcgNotificationJsonlLog `
-                -Path $JsonlLogPath `
-                -Operation $Operation `
-                -Status 'failed' `
-                -Subject $Subject `
-                -To $To `
-                -Cc $Cc `
-                -SmtpServer $SmtpServer `
-                -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath `
-                -ErrorMessage $_.Exception.Message `
-                -RunId $RunId `
-                -RunFolderPath $RunFolderPath |
-                Out-Null
-        }
-        catch {
-            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
-        }
+        try { Write-WtcgNotificationJsonlLog -Path $JsonlLogPath -Operation $Operation -Status 'failed' -Subject $Subject -To $To -Cc $Cc -SmtpServer $SmtpServer -XmlLogPath $XmlLogPath -IdentityOutputPath $IdentityOutputPath -ErrorMessage $_.Exception.Message -RunId $RunId -RunFolderPath $RunFolderPath | Out-Null }
+        catch { Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)" }
 
         Write-Warning "Failed to send WinTaskCrossingGuard error email: $($_.Exception.Message)"
-
-        if ($FailOnEmailError) {
-            throw
-        }
+        if ($FailOnEmailError) { throw }
     }
 }
-
 
 function Invoke-WtcgRegisterScheduledTask {
     [CmdletBinding()]

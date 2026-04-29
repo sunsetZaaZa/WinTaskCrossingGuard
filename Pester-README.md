@@ -104,6 +104,7 @@ No real scheduled tasks are required for the unit tests.
 - Scheduled re-enable overlap detection and stale-task update behavior
 - Central run folder and run ID correlation across logs, manifests, and reports
 - Windows Event Log audit integration
+- Webhook and ChatOps notifications for Teams, Slack, and Discord
 
 - safety allow-list mode behavior
 - protected never-disable task policy
