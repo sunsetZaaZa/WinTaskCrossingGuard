@@ -288,192 +288,6 @@ function Import-WtcgTaskIdentity {
     }
 }
 
-function Get-WtcgRestoreArtifactTaskItems {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [AllowNull()]
-        [object] $Artifact
-    )
-
-    if ($null -eq $Artifact) {
-        return @()
-    }
-
-    $tasks = Get-WtcgObjectPropertyValue -InputObject $Artifact -Name 'Tasks'
-    if ($null -ne $tasks) {
-        return @($tasks)
-    }
-
-    return @($Artifact)
-}
-
-function Test-WtcgRestoreArtifactTaskItem {
-    [CmdletBinding()]
-    param(
-        [Parameter()]
-        [AllowNull()]
-        [object] $Task
-    )
-
-    if ($null -eq $Task) {
-        return $false
-    }
-
-    $taskPath = Get-WtcgObjectPropertyValue -InputObject $Task -Name 'TaskPath'
-    $taskName = Get-WtcgObjectPropertyValue -InputObject $Task -Name 'TaskName'
-
-    return (-not [string]::IsNullOrWhiteSpace([string]$taskPath) -and
-        -not [string]::IsNullOrWhiteSpace([string]$taskName))
-}
-
-function Test-WtcgRestorableTaskItem {
-    [CmdletBinding()]
-    param(
-        [Parameter()]
-        [AllowNull()]
-        [object] $Task
-    )
-
-    if (-not (Test-WtcgRestoreArtifactTaskItem -Task $Task)) {
-        return $false
-    }
-
-    $wasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $Task -Name 'WasOriginallyEnabled' -DefaultValue $false)
-    $disabledBySuite = [bool](Get-WtcgObjectPropertyValue -InputObject $Task -Name 'DisabledBySuite' -DefaultValue $false)
-
-    return ($wasOriginallyEnabled -and $disabledBySuite)
-}
-
-function Get-WtcgRestoreArtifactSummary {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [AllowNull()]
-        [AllowEmptyString()]
-        [string] $Path
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path)) {
-        return $null
-    }
-
-    try {
-        $item = Get-Item -LiteralPath $Path -ErrorAction Stop
-        if ($item.PSIsContainer) {
-            return $null
-        }
-
-        $artifact = Get-Content -LiteralPath $item.FullName -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
-    }
-    catch {
-        return $null
-    }
-
-    $taskItems = @(Get-WtcgRestoreArtifactTaskItems -Artifact $artifact)
-    $taskItems = @($taskItems | Where-Object { Test-WtcgRestoreArtifactTaskItem -Task $_ })
-    if ($taskItems.Count -eq 0) {
-        return $null
-    }
-
-    $restorableItems = @($taskItems | Where-Object { Test-WtcgRestorableTaskItem -Task $_ })
-    $kind = Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'Kind'
-    if ([string]::IsNullOrWhiteSpace([string]$kind)) {
-        $kind = 'WinTaskCrossingGuard.TaskIdentityList'
-    }
-
-    [pscustomobject]@{
-        PSTypeName            = 'WinTaskCrossingGuard.RestoreArtifactSummary'
-        Path                  = $item.FullName
-        Name                  = $item.Name
-        Kind                  = [string]$kind
-        LastWriteTimeUtc      = $item.LastWriteTimeUtc
-        RunId                 = Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'RunId'
-        RunFolderPath         = Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'RunFolderPath'
-        CreatedAt             = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'CreatedAt')
-        WindowStart           = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'WindowStart')
-        WindowEnd             = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'WindowEnd')
-        TaskCount             = $taskItems.Count
-        RestorableTaskCount   = $restorableItems.Count
-    }
-}
-
-function Find-WtcgLatestRestoreArtifact {
-    [CmdletBinding()]
-    param(
-        [Parameter()]
-        [AllowNull()]
-        [AllowEmptyString()]
-        [string] $SearchPath,
-
-        [Parameter()]
-        [AllowNull()]
-        [AllowEmptyString()]
-        [string] $RunRootPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'runs'),
-
-        [Parameter()]
-        [switch] $IncludeEmptyRestoreSets
-    )
-
-    $rootPath = if (-not [string]::IsNullOrWhiteSpace($SearchPath)) { $SearchPath } else { $RunRootPath }
-    if ([string]::IsNullOrWhiteSpace($rootPath) -or -not (Test-Path -LiteralPath $rootPath)) {
-        return $null
-    }
-
-    $summaries = foreach ($file in Get-ChildItem -LiteralPath $rootPath -Recurse -File -Filter '*.json' -ErrorAction SilentlyContinue) {
-        $summary = Get-WtcgRestoreArtifactSummary -Path $file.FullName
-        if ($null -eq $summary) {
-            continue
-        }
-
-        if ($IncludeEmptyRestoreSets -or $summary.RestorableTaskCount -gt 0) {
-            $summary
-        }
-    }
-
-    $orderedSummaries = @($summaries | Sort-Object -Property LastWriteTimeUtc, Path -Descending)
-    if ($orderedSummaries.Count -eq 0) {
-        return $null
-    }
-
-    return $orderedSummaries[0]
-}
-
-function Import-WtcgRestoreArtifactTaskIdentity {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string] $Path
-    )
-
-    if (-not (Test-Path -LiteralPath $Path)) {
-        throw "Restore artifact JSON not found: $Path"
-    }
-
-    $artifact = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
-    $taskItems = @(Get-WtcgRestoreArtifactTaskItems -Artifact $artifact)
-
-    foreach ($item in $taskItems) {
-        if (-not (Test-WtcgRestorableTaskItem -Task $item)) {
-            continue
-        }
-
-        New-WtcgTaskIdentity `
-            -TaskPath ([string](Get-WtcgObjectPropertyValue -InputObject $item -Name 'TaskPath')) `
-            -TaskName ([string](Get-WtcgObjectPropertyValue -InputObject $item -Name 'TaskName')) `
-            -NextRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'NextRunTime') `
-            -State (Get-WtcgObjectPropertyValue -InputObject $item -Name 'State') `
-            -OriginalState (Get-WtcgObjectPropertyValue -InputObject $item -Name 'OriginalState') `
-            -WasOriginallyEnabled ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'WasOriginallyEnabled' -DefaultValue $true)) `
-            -DisabledBySuite ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledBySuite' -DefaultValue $true)) `
-            -DisabledAt (Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledAt') `
-            -LastRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastRunTime') `
-            -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastTaskResult') `
-            -Author (Get-WtcgObjectPropertyValue -InputObject $item -Name 'Author') `
-            -Description (Get-WtcgObjectPropertyValue -InputObject $item -Name 'Description')
-    }
-}
-
 function Export-WtcgTaskIdentity {
     [CmdletBinding()]
     param(
@@ -908,6 +722,182 @@ function Resolve-WtcgRunArtifactPath {
     return (Join-Path $folder $FileName)
 }
 
+function Test-WtcgRestoreArtifactTaskRestorable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object] $Task
+    )
+
+    $propertyNames = @($Task.PSObject.Properties.Name)
+    $wasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $Task -Name 'WasOriginallyEnabled' -DefaultValue $true)
+    $disabledBySuite = if ($propertyNames -contains 'DisabledBySuite') {
+        [bool](Get-WtcgObjectPropertyValue -InputObject $Task -Name 'DisabledBySuite' -DefaultValue $true)
+    }
+    else {
+        $true
+    }
+
+    return ($wasOriginallyEnabled -and $disabledBySuite)
+}
+
+function Get-WtcgRestoreArtifactSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+
+    $file = Get-Item -LiteralPath $Path -ErrorAction Stop
+    $nameLooksRestorable = $file.Name -match '(?i)(manifest|identit)'
+
+    try {
+        $payload = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        Write-Verbose "Skipping non-JSON or unreadable restore artifact candidate '$($file.FullName)': $($_.Exception.Message)"
+        return $null
+    }
+
+    $kind = [string](Get-WtcgObjectPropertyValue -InputObject $payload -Name 'Kind')
+    $kindLooksRestorable = $kind -match '(?i)(manifest|identity)'
+
+    if (-not ($nameLooksRestorable -or $kindLooksRestorable)) {
+        return $null
+    }
+
+    $tasks = Get-WtcgObjectPropertyValue -InputObject $payload -Name 'Tasks'
+    if ($null -eq $tasks) {
+        return $null
+    }
+
+    $taskArray = @($tasks)
+    if ($taskArray.Count -eq 0) {
+        return $null
+    }
+
+    $restorableTaskCount = 0
+    foreach ($task in $taskArray) {
+        if ($null -ne $task -and (Test-WtcgRestoreArtifactTaskRestorable -Task $task)) {
+            $restorableTaskCount++
+        }
+    }
+
+    $createdAt = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $payload -Name 'CreatedAt')
+    $runFolderPath = [string](Get-WtcgObjectPropertyValue -InputObject $payload -Name 'RunFolderPath')
+    if ([string]::IsNullOrWhiteSpace($runFolderPath)) {
+        $parent = Split-Path -Parent $file.FullName
+        if (-not [string]::IsNullOrWhiteSpace($parent) -and @('manifests', 'identities') -contains (Split-Path -Leaf $parent)) {
+            $runFolderPath = Split-Path -Parent $parent
+        }
+    }
+
+    $runId = [string](Get-WtcgObjectPropertyValue -InputObject $payload -Name 'RunId')
+    if ([string]::IsNullOrWhiteSpace($runId) -and -not [string]::IsNullOrWhiteSpace($runFolderPath)) {
+        $runId = Split-Path -Leaf $runFolderPath
+    }
+
+    [pscustomobject]@{
+        PSTypeName          = 'WinTaskCrossingGuard.RestoreArtifactSummary'
+        Path                = $file.FullName
+        Name                = $file.Name
+        Kind                = $kind
+        CreatedAt           = $createdAt
+        LastWriteTime       = $file.LastWriteTime
+        LastWriteTimeUtc    = $file.LastWriteTimeUtc
+        RunId               = $runId
+        RunFolderPath       = $runFolderPath
+        TaskCount           = $taskArray.Count
+        RestorableTaskCount = $restorableTaskCount
+    }
+}
+
+function Find-WtcgLatestRestoreArtifact {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $SearchPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunRootPath,
+
+        [Parameter()]
+        [switch] $IncludeEmptyRestoreSets
+    )
+
+    $effectiveSearchPath = if (-not [string]::IsNullOrWhiteSpace($SearchPath)) {
+        $SearchPath
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($RunRootPath)) {
+        $RunRootPath
+    }
+    else {
+        Resolve-WtcgRunRootPath
+    }
+
+    if ([string]::IsNullOrWhiteSpace($effectiveSearchPath) -or -not (Test-Path -LiteralPath $effectiveSearchPath -PathType Container)) {
+        return $null
+    }
+
+    Get-ChildItem -LiteralPath $effectiveSearchPath -Recurse -File -Filter '*.json' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '(?i)(manifest|identit)' } |
+        ForEach-Object { Get-WtcgRestoreArtifactSummary -Path $_.FullName } |
+        Where-Object { $null -ne $_ } |
+        Sort-Object -Property LastWriteTimeUtc, CreatedAt, Path -Descending |
+        Select-Object -First 1
+}
+
+function Import-WtcgRestoreArtifactTaskIdentity {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Restore artifact not found: $Path"
+    }
+
+    $payload = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    $tasks = Get-WtcgObjectPropertyValue -InputObject $payload -Name 'Tasks'
+    if ($null -eq $tasks) {
+        throw "Restore artifact has no Tasks array: $Path"
+    }
+
+    foreach ($task in @($tasks)) {
+        if ($null -eq $task) {
+            continue
+        }
+
+        if (-not (Test-WtcgRestoreArtifactTaskRestorable -Task $task)) {
+            Write-Verbose "Skipping '$([string](Get-WtcgObjectPropertyValue -InputObject $task -Name 'TaskPath'))$([string](Get-WtcgObjectPropertyValue -InputObject $task -Name 'TaskName'))' because it was not marked as disabled by this suite run."
+            continue
+        }
+
+        New-WtcgTaskIdentity `
+            -TaskPath ([string](Get-WtcgObjectPropertyValue -InputObject $task -Name 'TaskPath')) `
+            -TaskName ([string](Get-WtcgObjectPropertyValue -InputObject $task -Name 'TaskName')) `
+            -NextRunTime (Get-WtcgObjectPropertyValue -InputObject $task -Name 'NextRunTime') `
+            -State (Get-WtcgObjectPropertyValue -InputObject $task -Name 'State') `
+            -OriginalState (Get-WtcgObjectPropertyValue -InputObject $task -Name 'OriginalState') `
+            -WasOriginallyEnabled $true `
+            -DisabledBySuite $true `
+            -DisabledAt (Get-WtcgObjectPropertyValue -InputObject $task -Name 'DisabledAt') `
+            -LastRunTime (Get-WtcgObjectPropertyValue -InputObject $task -Name 'LastRunTime') `
+            -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $task -Name 'LastTaskResult') `
+            -Author (Get-WtcgObjectPropertyValue -InputObject $task -Name 'Author') `
+            -Description (Get-WtcgObjectPropertyValue -InputObject $task -Name 'Description')
+    }
+}
+
 function Save-WtcgRunReport {
     [CmdletBinding()]
     param(
@@ -1322,17 +1312,16 @@ function Get-WtcgActivePriorReenableRun {
             continue
         }
 
+        if ($null -ne $run.NextRunTime -and $run.NextRunTime -le $WindowStart) {
+            continue
+        }
+
         $blocksRequestedRun = $false
         $reason = $null
 
         if ($run.IsExactConfiguredTask) {
-            if ($null -ne $run.NextRunTime -and $run.NextRunTime -ge $WindowStart) {
-                $blocksRequestedRun = $true
-                $reason = 'configured re-enable task is already scheduled'
-            }
-            else {
-                continue
-            }
+            $blocksRequestedRun = $true
+            $reason = 'configured re-enable task is already scheduled'
         }
         elseif ($null -eq $run.WindowStart -or $null -eq $run.NextRunTime) {
             $blocksRequestedRun = $true
@@ -3186,7 +3175,6 @@ function Write-WtcgErrorXmlLog {
         $writer.WriteAttributeString('operation', $Operation)
         if (-not [string]::IsNullOrWhiteSpace($RunId)) {
             $writer.WriteAttributeString('runId', $RunId)
-            $writer.WriteElementString('RunId', $RunId)
         }
         if (-not [string]::IsNullOrWhiteSpace($RunFolderPath)) {
             $writer.WriteElementString('RunFolderPath', $RunFolderPath)
@@ -4611,6 +4599,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     $effectiveErrorReportPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Errors' -FileName 'disable-schedule-error-report.json'
 
     trap {
+        $wtcgTrapError = $_
         Exit-WtcgRuntimeLock -Lock $runtimeLock -ErrorAction SilentlyContinue
 
         Write-Host "WinTaskCrossingGuard error: $($_.Exception.Message)" -ForegroundColor Red
@@ -4715,7 +4704,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -FailOnEmailError:$FailOnErrorEmail
         }
 
-        throw $_.Exception.Message
+        throw $wtcgTrapError.Exception.Message
     }
 
 

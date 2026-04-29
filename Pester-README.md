@@ -67,6 +67,8 @@ That module contains the functional behavior:
 - manifest writing
 - central run folder/run ID creation and artifact path routing
 - run report writing
+- emergency latest restore artifact discovery
+- emergency restore wrapper smoke tests
 - XML disable log writing with run correlation fields
 - SIEM-friendly JSONL event writing under steamablelogs with run correlation fields
 - Windows Event Log audit event formatting for the WinTaskCrossingGuard source
