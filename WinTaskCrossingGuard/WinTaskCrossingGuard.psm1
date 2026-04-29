@@ -530,6 +530,436 @@ function Exit-WtcgRuntimeLock {
     }
 }
 
+
+function ConvertTo-WtcgNullableDateTime {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Value
+    )
+
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    try {
+        $dateTime = [datetime]$Value
+        if ($dateTime -eq [datetime]::MinValue) {
+            return $null
+        }
+
+        return $dateTime
+    }
+    catch {
+        return $null
+    }
+}
+
+function Test-WtcgDateTimeRangeOverlap {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [datetime] $FirstStart,
+
+        [Parameter(Mandatory)]
+        [datetime] $FirstEnd,
+
+        [Parameter(Mandatory)]
+        [datetime] $SecondStart,
+
+        [Parameter(Mandatory)]
+        [datetime] $SecondEnd
+    )
+
+    if ($FirstEnd -lt $FirstStart) {
+        throw 'FirstEnd cannot be earlier than FirstStart.'
+    }
+
+    if ($SecondEnd -lt $SecondStart) {
+        throw 'SecondEnd cannot be earlier than SecondStart.'
+    }
+
+    return ($FirstStart -lt $SecondEnd -and $SecondStart -lt $FirstEnd)
+}
+
+function Get-WtcgScheduledTaskActionArgumentText {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [AllowNull()]
+        [object] $Task
+    )
+
+    process {
+        if ($null -eq $Task) {
+            return
+        }
+
+        $actions = Get-WtcgObjectPropertyValue -InputObject $Task -Name 'Actions'
+        if ($null -eq $actions) {
+            return
+        }
+
+        foreach ($action in @($actions)) {
+            if ($null -eq $action) {
+                continue
+            }
+
+            $argumentText = Get-WtcgObjectPropertyValue -InputObject $action -Name 'Arguments'
+            if ([string]::IsNullOrWhiteSpace([string]$argumentText)) {
+                $argumentText = Get-WtcgObjectPropertyValue -InputObject $action -Name 'Argument'
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace([string]$argumentText)) {
+                [string]$argumentText
+            }
+        }
+    }
+}
+
+function Get-WtcgCommandArgumentValue {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Arguments,
+
+        [Parameter(Mandatory)]
+        [string] $Name
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        throw 'Argument name cannot be empty.'
+    }
+
+    $escapedName = [regex]::Escape($Name.TrimStart('-'))
+    $pattern = "(?i)(?:^|\s)-$escapedName(?:\s+|:)(?:`"(?<dq>[^`"]*)`"|'(?<sq>[^']*)'|(?<bare>\S+))"
+    $match = [regex]::Match($Arguments, $pattern)
+
+    if (-not $match.Success) {
+        return $null
+    }
+
+    foreach ($groupName in @('dq', 'sq', 'bare')) {
+        $group = $match.Groups[$groupName]
+        if ($null -ne $group -and $group.Success) {
+            return $group.Value
+        }
+    }
+
+    return $null
+}
+
+function Import-WtcgReenableManifestSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    $summary = [ordered]@{
+        ManifestPath    = $Path
+        ManifestExists  = $false
+        ManifestKind    = $null
+        CreatedAt       = $null
+        WindowStart     = $null
+        WindowEnd       = $null
+        TaskFullNames   = @()
+        ReadError       = $null
+    }
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return [pscustomobject]$summary
+    }
+
+    $summary.ManifestExists = $true
+
+    try {
+        $manifest = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        $summary.ManifestKind = Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'Kind'
+        $summary.CreatedAt = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'CreatedAt')
+        $summary.WindowStart = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'WindowStart')
+        $summary.WindowEnd = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'WindowEnd')
+
+        $tasks = Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'Tasks'
+        $taskFullNames = [System.Collections.Generic.List[string]]::new()
+        foreach ($task in @($tasks)) {
+            $taskFullName = Get-WtcgObjectPropertyValue -InputObject $task -Name 'FullName'
+            if (-not [string]::IsNullOrWhiteSpace([string]$taskFullName)) {
+                $taskFullNames.Add([string]$taskFullName)
+            }
+        }
+        $summary.TaskFullNames = @($taskFullNames)
+    }
+    catch {
+        $summary.ReadError = $_.Exception.Message
+    }
+
+    [pscustomobject]$summary
+}
+
+function Get-WtcgScheduledReenableRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object] $Task,
+
+        [Parameter(Mandatory)]
+        [string] $ExpectedTaskPath,
+
+        [Parameter(Mandatory)]
+        [string] $ExpectedTaskName,
+
+        [Parameter()]
+        [datetime] $Now = (Get-Date)
+    )
+
+    $normalizedExpectedTaskPath = Normalize-WtcgTaskPath -TaskPath $ExpectedTaskPath
+    $taskPath = Get-WtcgObjectPropertyValue -InputObject $Task -Name 'TaskPath' -DefaultValue $normalizedExpectedTaskPath
+    $taskName = Get-WtcgObjectPropertyValue -InputObject $Task -Name 'TaskName' -DefaultValue $ExpectedTaskName
+
+    if ([string]::IsNullOrWhiteSpace([string]$taskName)) {
+        return $null
+    }
+
+    $normalizedTaskPath = Normalize-WtcgTaskPath -TaskPath ([string]$taskPath)
+    $taskFullName = "$normalizedTaskPath$taskName"
+    $expectedTaskFullName = "$normalizedExpectedTaskPath$ExpectedTaskName"
+    $isExactConfiguredTask = ($normalizedTaskPath -ieq $normalizedExpectedTaskPath -and [string]$taskName -ieq $ExpectedTaskName)
+
+    $argumentText = @(Get-WtcgScheduledTaskActionArgumentText -Task $Task)
+    $manifestPath = $null
+    $jsonlLogPath = $null
+    foreach ($arguments in $argumentText) {
+        if ([string]::IsNullOrWhiteSpace($manifestPath)) {
+            $manifestPath = Get-WtcgCommandArgumentValue -Arguments $arguments -Name 'ManifestPath'
+        }
+        if ([string]::IsNullOrWhiteSpace($jsonlLogPath)) {
+            $jsonlLogPath = Get-WtcgCommandArgumentValue -Arguments $arguments -Name 'JsonlLogPath'
+        }
+    }
+
+    $description = Get-WtcgObjectPropertyValue -InputObject $Task -Name 'Description'
+    $isWinTaskCrossingGuardTask = (
+        $isExactConfiguredTask -or
+        -not [string]::IsNullOrWhiteSpace([string]$manifestPath) -or
+        ([string]$description -match 'WinTaskCrossingGuard')
+    )
+
+    if (-not $isWinTaskCrossingGuardTask) {
+        return $null
+    }
+
+    $taskInfo = $null
+    try {
+        $taskInfo = Get-ScheduledTaskInfo -TaskPath $normalizedTaskPath -TaskName ([string]$taskName) -ErrorAction Stop
+    }
+    catch {
+        $taskInfo = $null
+    }
+
+    $nextRunTime = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $taskInfo -Name 'NextRunTime')
+    $manifestSummary = Import-WtcgReenableManifestSummary -Path $manifestPath
+    $manifestWindowStart = $null
+    $manifestWindowEnd = $null
+    $manifestTaskFullNames = @()
+    if ($null -ne $manifestSummary) {
+        $manifestWindowStart = $manifestSummary.WindowStart
+        $manifestWindowEnd = $manifestSummary.WindowEnd
+        $manifestTaskFullNames = @($manifestSummary.TaskFullNames)
+    }
+
+    [pscustomobject]@{
+        PSTypeName              = 'WinTaskCrossingGuard.ScheduledReenableRun'
+        TaskPath                = $normalizedTaskPath
+        TaskName                = [string]$taskName
+        TaskFullName            = $taskFullName
+        ExpectedTaskFullName    = $expectedTaskFullName
+        IsExactConfiguredTask   = $isExactConfiguredTask
+        NextRunTime             = $nextRunTime
+        IsActive                = ($null -ne $nextRunTime -and $nextRunTime -gt $Now)
+        ManifestPath            = $manifestPath
+        JsonlLogPath            = $jsonlLogPath
+        WindowStart             = $manifestWindowStart
+        WindowEnd               = $manifestWindowEnd
+        TaskFullNames           = $manifestTaskFullNames
+        ManifestSummary         = $manifestSummary
+    }
+}
+
+function Get-WtcgActivePriorReenableRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [datetime] $WindowStart,
+
+        [Parameter(Mandatory)]
+        [datetime] $WindowEnd,
+
+        [Parameter(Mandatory)]
+        [datetime] $ReenableAt,
+
+        [Parameter(Mandatory)]
+        [string] $ReenableTaskPath,
+
+        [Parameter(Mandatory)]
+        [string] $ReenableTaskName,
+
+        [Parameter()]
+        [datetime] $Now = (Get-Date)
+    )
+
+    $normalizedReenableTaskPath = Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath
+    $candidateTasks = [System.Collections.Generic.List[object]]::new()
+    $seen = @{}
+
+    $addCandidate = {
+        param([object] $Candidate)
+
+        foreach ($item in @($Candidate)) {
+            if ($null -eq $item) {
+                continue
+            }
+
+            $candidateTaskPath = Normalize-WtcgTaskPath -TaskPath ([string](Get-WtcgObjectPropertyValue -InputObject $item -Name 'TaskPath' -DefaultValue $normalizedReenableTaskPath))
+            $candidateTaskName = [string](Get-WtcgObjectPropertyValue -InputObject $item -Name 'TaskName' -DefaultValue '')
+            if ([string]::IsNullOrWhiteSpace($candidateTaskName)) {
+                continue
+            }
+
+            $key = "$candidateTaskPath|$candidateTaskName".ToLowerInvariant()
+            if (-not $seen.ContainsKey($key)) {
+                $seen[$key] = $true
+                $candidateTasks.Add($item)
+            }
+        }
+    }
+
+    try {
+        & $addCandidate (Get-ScheduledTask -TaskPath $normalizedReenableTaskPath -TaskName $ReenableTaskName -ErrorAction SilentlyContinue)
+    }
+    catch { }
+
+    try {
+        & $addCandidate (Get-ScheduledTask -TaskPath $normalizedReenableTaskPath -ErrorAction SilentlyContinue)
+    }
+    catch { }
+
+    $newActiveStart = $WindowStart
+    $newActiveEnd = $ReenableAt
+    if ($newActiveEnd -lt $newActiveStart) {
+        $newActiveEnd = $WindowEnd
+    }
+    if ($newActiveEnd -lt $newActiveStart) {
+        $newActiveEnd = $newActiveStart
+    }
+
+    foreach ($candidateTask in @($candidateTasks)) {
+        $run = Get-WtcgScheduledReenableRun `
+            -Task $candidateTask `
+            -ExpectedTaskPath $normalizedReenableTaskPath `
+            -ExpectedTaskName $ReenableTaskName `
+            -Now $Now
+
+        if ($null -eq $run -or -not $run.IsActive) {
+            continue
+        }
+
+        $blocksRequestedRun = $false
+        $reason = $null
+
+        if ($run.IsExactConfiguredTask) {
+            $blocksRequestedRun = $true
+            $reason = 'configured re-enable task is already scheduled'
+        }
+        elseif ($null -eq $run.WindowStart -or $null -eq $run.NextRunTime) {
+            $blocksRequestedRun = $true
+            $reason = 'active WinTaskCrossingGuard re-enable task has insufficient manifest timing metadata'
+        }
+        else {
+            $priorActiveStart = $run.WindowStart
+            $priorActiveEnd = $run.NextRunTime
+            if ($priorActiveEnd -lt $priorActiveStart) {
+                $priorActiveEnd = $run.WindowEnd
+            }
+            if ($priorActiveEnd -lt $priorActiveStart) {
+                $priorActiveEnd = $priorActiveStart
+            }
+
+            if (Test-WtcgDateTimeRangeOverlap `
+                    -FirstStart $priorActiveStart `
+                    -FirstEnd $priorActiveEnd `
+                    -SecondStart $newActiveStart `
+                    -SecondEnd $newActiveEnd) {
+                $blocksRequestedRun = $true
+                $reason = 'active re-enable window overlaps requested disable-to-reenable interval'
+            }
+        }
+
+        if ($blocksRequestedRun) {
+            $run | Add-Member -NotePropertyName OverlapReason -NotePropertyValue $reason -Force
+            return $run
+        }
+    }
+
+    return $null
+}
+
+function Assert-WtcgNoOverlappingScheduledReenableRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [datetime] $WindowStart,
+
+        [Parameter(Mandatory)]
+        [datetime] $WindowEnd,
+
+        [Parameter(Mandatory)]
+        [datetime] $ReenableAt,
+
+        [Parameter(Mandatory)]
+        [string] $ReenableTaskPath,
+
+        [Parameter(Mandatory)]
+        [string] $ReenableTaskName
+    )
+
+    $activePriorRun = Get-WtcgActivePriorReenableRun `
+        -WindowStart $WindowStart `
+        -WindowEnd $WindowEnd `
+        -ReenableAt $ReenableAt `
+        -ReenableTaskPath $ReenableTaskPath `
+        -ReenableTaskName $ReenableTaskName
+
+    if ($null -eq $activePriorRun) {
+        return
+    }
+
+    $details = [System.Collections.Generic.List[string]]::new()
+    $details.Add("task '$($activePriorRun.TaskFullName)'")
+    if ($null -ne $activePriorRun.NextRunTime) {
+        $details.Add("next re-enable '$($activePriorRun.NextRunTime.ToString('o'))'")
+    }
+    if ($null -ne $activePriorRun.WindowStart) {
+        $details.Add("prior window start '$($activePriorRun.WindowStart.ToString('o'))'")
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$activePriorRun.ManifestPath)) {
+        $details.Add("manifest '$($activePriorRun.ManifestPath)'")
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$activePriorRun.OverlapReason)) {
+        $details.Add("reason '$($activePriorRun.OverlapReason)'")
+    }
+
+    throw "Active prior WinTaskCrossingGuard re-enable run detected: $($details -join '; '). Refusing to schedule a new re-enable task because it could overwrite or prematurely re-enable another run."
+}
+
 function Import-WtcgTaskSelection {
     [CmdletBinding()]
     param(
@@ -3290,6 +3720,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     $jsonlLogFile = $null
 
     $window = Resolve-WtcgWindow -Start $Start -End $End
+    $normalizedReenableTaskPath = Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath
 
     if (-not $DisableLock) {
         $effectiveLockPath = Resolve-WtcgRuntimeLockPath -Path $LockPath
@@ -3314,6 +3745,13 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
 
     $resultMailSettings = Get-WtcgResultMailSettings -Selection $selection
     $errorMailSettings = Get-WtcgErrorMailSettings -Selection $selection
+
+    Assert-WtcgNoOverlappingScheduledReenableRun `
+        -WindowStart $window.Start `
+        -WindowEnd $window.End `
+        -ReenableAt $ReenableAt `
+        -ReenableTaskPath $normalizedReenableTaskPath `
+        -ReenableTaskName $ReenableTaskName
 
     $taskIdentities = @(
         Find-WtcgTaskInWindow `
@@ -3429,8 +3867,6 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             -AttachXmlLog `
             -FailOnEmailError:$FailOnLogEmailError
     }
-
-    $normalizedReenableTaskPath = Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath
 
     $quotedEnableScriptPath = '"' + $EnableScriptPath + '"'
     $quotedIdentityPath = '"' + $identityFile.FullName + '"'
