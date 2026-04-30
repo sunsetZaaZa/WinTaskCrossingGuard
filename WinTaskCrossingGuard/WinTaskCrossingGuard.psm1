@@ -1273,6 +1273,9 @@ function Clear-WtcgOldLogs {
         [datetime] $Now = (Get-Date),
 
         [Parameter()]
+        [string[]] $Filter = @('*.xml'),
+
+        [Parameter()]
         [switch] $PassThru
     )
 
@@ -1291,9 +1294,15 @@ function Clear-WtcgOldLogs {
     $cutoff = $Now.AddDays(-1 * $retentionDays)
 
     $oldLogs = @(
-        Get-ChildItem -LiteralPath $LogsPath -File -Filter '*.xml' -ErrorAction Stop |
-            Where-Object { $_.LastWriteTime -lt $cutoff }
-    )
+        foreach ($filterItem in @($Filter)) {
+            if ([string]::IsNullOrWhiteSpace($filterItem)) {
+                continue
+            }
+
+            Get-ChildItem -LiteralPath $LogsPath -File -Filter $filterItem -ErrorAction Stop |
+                Where-Object { $_.LastWriteTime -lt $cutoff }
+        }
+    ) | Sort-Object -Property FullName -Unique
 
     foreach ($logFile in $oldLogs) {
         if ($PSCmdlet.ShouldProcess($logFile.FullName, "Delete log file older than LOG_RETENTION=$retentionDays day(s)")) {
@@ -1332,6 +1341,432 @@ function Resolve-WtcgXmlLogPath {
 
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     return Join-Path $BaseDirectory (Join-Path 'logs' "$Prefix-$timestamp.xml")
+}
+
+
+function Resolve-WtcgJsonlLogPath {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path,
+
+        [Parameter()]
+        [string] $BaseDirectory = (Split-Path -Parent $PSScriptRoot),
+
+        [Parameter()]
+        [string] $Prefix = 'wintaskcrossingguard-events'
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Path)) {
+        return $Path
+    }
+
+    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    return Join-Path $BaseDirectory (Join-Path 'steamablelogs' "$Prefix-$timestamp.jsonl")
+}
+
+function New-WtcgJsonlEvent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('disable', 're-enable', 'error', 'notification')]
+        [string] $Action,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Operation = 'WinTaskCrossingGuard operation',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Status,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Details,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $HostName = $env:COMPUTERNAME,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $UserName = $env:USERNAME
+    )
+
+    $now = Get-Date
+    $event = [ordered]@{
+        schemaVersion  = '1.0'
+        source         = 'WinTaskCrossingGuard'
+        timestampUtc   = $now.ToUniversalTime().ToString('o')
+        timestampLocal = $now.ToString('o')
+        action         = $Action
+        operation      = $Operation
+        hostName       = $HostName
+        userName       = $UserName
+        processId      = $PID
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Status)) {
+        $event.status = $Status
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RunId)) {
+        $event.runId = $RunId
+    }
+
+    $event.details = if ($null -ne $Details) { $Details } else { [ordered]@{} }
+
+    [pscustomobject]$event
+}
+
+function Write-WtcgJsonlEvent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [object[]] $Event,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path
+    )
+
+    begin {
+        $items = [System.Collections.Generic.List[object]]::new()
+    }
+
+    process {
+        foreach ($entry in $Event) {
+            if ($null -ne $entry) {
+                $items.Add($entry)
+            }
+        }
+    }
+
+    end {
+        $resolvedPath = Resolve-WtcgJsonlLogPath -Path $Path
+
+        if ([string]::IsNullOrWhiteSpace($resolvedPath)) {
+            throw "Could not resolve JSONL log path."
+        }
+
+        $directory = Split-Path -Parent $resolvedPath
+        if ($directory) {
+            New-Item -ItemType Directory -Path $directory -Force -WhatIf:$false | Out-Null
+        }
+
+        foreach ($entry in $items) {
+            $json = $entry | ConvertTo-Json -Depth 20 -Compress
+            Add-Content -LiteralPath $resolvedPath -Value $json -Encoding utf8
+        }
+
+        Get-Item -LiteralPath $resolvedPath
+    }
+}
+
+function Write-WtcgDisableJsonlLog {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [object[]] $Task,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path,
+
+        [Parameter(Mandatory)]
+        [datetime] $WindowStart,
+
+        [Parameter(Mandatory)]
+        [datetime] $WindowEnd,
+
+        [Parameter()]
+        [AllowNull()]
+        [datetime] $ReenableAt,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $SelectionSource,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $IdentityOutputPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ReenableTaskFullName,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [string] $Operation = 'DisableTasksInWindow'
+    )
+
+    begin {
+        $items = [System.Collections.Generic.List[object]]::new()
+    }
+
+    process {
+        foreach ($entry in $Task) {
+            if ($null -ne $entry) {
+                $items.Add($entry)
+            }
+        }
+    }
+
+    end {
+        $events = foreach ($entry in $items) {
+            $taskPath = Normalize-WtcgTaskPath -TaskPath ([string](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'TaskPath'))
+            $taskName = [string](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'TaskName')
+            $nextRunTime = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'NextRunTime'
+            $disabledAt = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'DisabledAt'
+
+            $details = [ordered]@{
+                taskPath               = $taskPath
+                taskName               = $taskName
+                fullName               = "$taskPath$taskName"
+                stateAtDiscovery       = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'State'
+                originalState          = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'OriginalState'
+                wasOriginallyEnabled   = [bool](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'WasOriginallyEnabled' -DefaultValue $true)
+                disabledBySuite        = [bool](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'DisabledBySuite' -DefaultValue $true)
+                disabledAt             = if ($null -ne $disabledAt) { ([datetime]$disabledAt).ToString('o') } else { $null }
+                nextRunTime            = if ($null -ne $nextRunTime -and ([datetime]$nextRunTime) -ne [datetime]::MinValue) { ([datetime]$nextRunTime).ToString('o') } else { $null }
+                windowStart            = $WindowStart.ToString('o')
+                windowEnd              = $WindowEnd.ToString('o')
+                reenableAt             = if ($null -ne $ReenableAt) { $ReenableAt.ToString('o') } else { $null }
+                selectionSource        = $SelectionSource
+                identityOutputPath     = $IdentityOutputPath
+                reenableTaskFullName   = $ReenableTaskFullName
+            }
+
+            New-WtcgJsonlEvent `
+                -Action 'disable' `
+                -Operation $Operation `
+                -Status 'succeeded' `
+                -RunId $RunId `
+                -Details $details
+        }
+
+        $events | Write-WtcgJsonlEvent -Path $Path
+    }
+}
+
+function Write-WtcgReenableJsonlLog {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [object[]] $Task,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $IdentityPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ManifestPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [string] $Operation = 'ReenableTaskIdentities'
+    )
+
+    begin {
+        $items = [System.Collections.Generic.List[object]]::new()
+    }
+
+    process {
+        foreach ($entry in $Task) {
+            if ($null -ne $entry) {
+                $items.Add($entry)
+            }
+        }
+    }
+
+    end {
+        $events = foreach ($entry in $items) {
+            $taskPath = Normalize-WtcgTaskPath -TaskPath ([string](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'TaskPath'))
+            $taskName = [string](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'TaskName')
+
+            $details = [ordered]@{
+                taskPath     = $taskPath
+                taskName     = $taskName
+                fullName     = "$taskPath$taskName"
+                identityPath  = $IdentityPath
+                manifestPath  = $ManifestPath
+            }
+
+            New-WtcgJsonlEvent `
+                -Action 're-enable' `
+                -Operation $Operation `
+                -Status 'succeeded' `
+                -RunId $RunId `
+                -Details $details
+        }
+
+        $events | Write-WtcgJsonlEvent -Path $Path
+    }
+}
+
+function Write-WtcgErrorJsonlLog {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object] $ErrorRecord,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path,
+
+        [Parameter()]
+        [string] $Operation = 'WinTaskCrossingGuard operation',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $SelectionSource,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $IdentityOutputPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId
+    )
+
+    $exception = $ErrorRecord.Exception
+    $message = if ($null -ne $exception) { $exception.Message } else { [string]$ErrorRecord }
+    $errorType = if ($null -ne $exception) { $exception.GetType().FullName } else { $null }
+
+    $details = [ordered]@{
+        message                 = $message
+        type                    = $errorType
+        fullyQualifiedErrorId   = if ($null -ne $ErrorRecord.FullyQualifiedErrorId) { [string]$ErrorRecord.FullyQualifiedErrorId } else { $null }
+        positionMessage         = if ($null -ne $ErrorRecord.InvocationInfo) { $ErrorRecord.InvocationInfo.PositionMessage } else { $null }
+        selectionSource         = $SelectionSource
+        identityOutputPath      = $IdentityOutputPath
+    }
+
+    New-WtcgJsonlEvent `
+        -Action 'error' `
+        -Operation $Operation `
+        -Status 'failed' `
+        -RunId $RunId `
+        -Details $details |
+        Write-WtcgJsonlEvent -Path $Path
+}
+
+function Write-WtcgNotificationJsonlLog {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path,
+
+        [Parameter()]
+        [string] $Operation = 'WinTaskCrossingGuard notification',
+
+        [Parameter()]
+        [ValidateSet('attempted', 'sent', 'failed', 'skipped')]
+        [string] $Status = 'sent',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Channel = 'email',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Subject,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [string[]] $To,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [string[]] $Cc,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $SmtpServer,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $XmlLogPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $IdentityOutputPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ErrorMessage,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId
+    )
+
+    $details = [ordered]@{
+        channel            = $Channel
+        subject            = $Subject
+        to                 = @($To | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        cc                 = @($Cc | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        smtpServer         = $SmtpServer
+        xmlLogPath         = $XmlLogPath
+        identityOutputPath = $IdentityOutputPath
+        errorMessage       = $ErrorMessage
+    }
+
+    New-WtcgJsonlEvent `
+        -Action 'notification' `
+        -Operation $Operation `
+        -Status $Status `
+        -RunId $RunId `
+        -Details $details |
+        Write-WtcgJsonlEvent -Path $Path
 }
 
 function Write-WtcgDisableXmlLog {
@@ -1885,6 +2320,11 @@ function Send-WtcgLogGeneratedNotificationFromSettings {
         [string] $IdentityOutputPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlLogPath,
+
+        [Parameter()]
         [string] $Operation = 'WinTaskCrossingGuard log generated',
 
         [Parameter()]
@@ -1906,7 +2346,7 @@ function Send-WtcgLogGeneratedNotificationFromSettings {
             -IdentityOutputPath $IdentityOutputPath `
             -Operation $Operation
 
-        Send-WtcgMailNotification `
+        $sendResult = Send-WtcgMailNotification `
             -SmtpServer $MailSettings.SmtpServer `
             -Port $MailSettings.Port `
             -From $MailSettings.From `
@@ -1916,8 +2356,45 @@ function Send-WtcgLogGeneratedNotificationFromSettings {
             -Body $body `
             -AttachmentPath $attachments `
             -UseSsl:$MailSettings.UseSsl
+
+        try {
+            Write-WtcgNotificationJsonlLog `
+                -Path $JsonlLogPath `
+                -Operation $Operation `
+                -Status 'sent' `
+                -Subject $Subject `
+                -To $MailSettings.To `
+                -Cc $MailSettings.Cc `
+                -SmtpServer $MailSettings.SmtpServer `
+                -XmlLogPath $XmlLogPath `
+                -IdentityOutputPath $IdentityOutputPath |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
+        }
+
+        $sendResult
     }
     catch {
+        try {
+            Write-WtcgNotificationJsonlLog `
+                -Path $JsonlLogPath `
+                -Operation $Operation `
+                -Status 'failed' `
+                -Subject $Subject `
+                -To $MailSettings.To `
+                -Cc $MailSettings.Cc `
+                -SmtpServer $MailSettings.SmtpServer `
+                -XmlLogPath $XmlLogPath `
+                -IdentityOutputPath $IdentityOutputPath `
+                -ErrorMessage $_.Exception.Message |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
+        }
+
         Write-Warning "Failed to send WinTaskCrossingGuard log-generated email: $($_.Exception.Message)"
 
         if ($MailSettings.FailOnEmailError) {
@@ -1950,6 +2427,11 @@ function Send-WtcgErrorNotificationFromSettings {
         [string] $IdentityOutputPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlLogPath,
+
+        [Parameter()]
         [string] $Subject = 'WinTaskCrossingGuard error'
     )
 
@@ -1969,7 +2451,7 @@ function Send-WtcgErrorNotificationFromSettings {
             -XmlLogPath $XmlLogPath `
             -IdentityOutputPath $IdentityOutputPath
 
-        Send-WtcgMailNotification `
+        $sendResult = Send-WtcgMailNotification `
             -SmtpServer $MailSettings.SmtpServer `
             -Port $MailSettings.Port `
             -From $MailSettings.From `
@@ -1979,8 +2461,45 @@ function Send-WtcgErrorNotificationFromSettings {
             -Body $body `
             -AttachmentPath $attachments `
             -UseSsl:$MailSettings.UseSsl
+
+        try {
+            Write-WtcgNotificationJsonlLog `
+                -Path $JsonlLogPath `
+                -Operation $Operation `
+                -Status 'sent' `
+                -Subject $Subject `
+                -To $MailSettings.To `
+                -Cc $MailSettings.Cc `
+                -SmtpServer $MailSettings.SmtpServer `
+                -XmlLogPath $XmlLogPath `
+                -IdentityOutputPath $IdentityOutputPath |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
+        }
+
+        $sendResult
     }
     catch {
+        try {
+            Write-WtcgNotificationJsonlLog `
+                -Path $JsonlLogPath `
+                -Operation $Operation `
+                -Status 'failed' `
+                -Subject $Subject `
+                -To $MailSettings.To `
+                -Cc $MailSettings.Cc `
+                -SmtpServer $MailSettings.SmtpServer `
+                -XmlLogPath $XmlLogPath `
+                -IdentityOutputPath $IdentityOutputPath `
+                -ErrorMessage $_.Exception.Message |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
+        }
+
         Write-Warning "Failed to send WinTaskCrossingGuard error email: $($_.Exception.Message)"
 
         if ($MailSettings.FailOnEmailError) {
@@ -2282,6 +2801,11 @@ function Send-WtcgLogGeneratedNotification {
         [string] $IdentityOutputPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlLogPath,
+
+        [Parameter()]
         [string] $Operation = 'WinTaskCrossingGuard log generated',
 
         [Parameter()]
@@ -2309,7 +2833,7 @@ function Send-WtcgLogGeneratedNotification {
             -IdentityOutputPath $IdentityOutputPath `
             -Operation $Operation
 
-        Send-WtcgMailNotification `
+        $sendResult = Send-WtcgMailNotification `
             -SmtpServer $SmtpServer `
             -Port $Port `
             -From $From `
@@ -2320,8 +2844,45 @@ function Send-WtcgLogGeneratedNotification {
             -AttachmentPath $attachments `
             -UseSsl:$UseSsl `
             -Credential $Credential
+
+        try {
+            Write-WtcgNotificationJsonlLog `
+                -Path $JsonlLogPath `
+                -Operation $Operation `
+                -Status 'sent' `
+                -Subject $Subject `
+                -To $To `
+                -Cc $Cc `
+                -SmtpServer $SmtpServer `
+                -XmlLogPath $XmlLogPath `
+                -IdentityOutputPath $IdentityOutputPath |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
+        }
+
+        $sendResult
     }
     catch {
+        try {
+            Write-WtcgNotificationJsonlLog `
+                -Path $JsonlLogPath `
+                -Operation $Operation `
+                -Status 'failed' `
+                -Subject $Subject `
+                -To $To `
+                -Cc $Cc `
+                -SmtpServer $SmtpServer `
+                -XmlLogPath $XmlLogPath `
+                -IdentityOutputPath $IdentityOutputPath `
+                -ErrorMessage $_.Exception.Message |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
+        }
+
         Write-Warning "Failed to send WinTaskCrossingGuard log-generated email: $($_.Exception.Message)"
 
         if ($FailOnEmailError) {
@@ -2368,6 +2929,11 @@ function Send-WtcgErrorNotification {
         [string] $IdentityOutputPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlLogPath,
+
+        [Parameter()]
         [switch] $UseSsl,
 
         [Parameter()]
@@ -2393,7 +2959,7 @@ function Send-WtcgErrorNotification {
             -XmlLogPath $XmlLogPath `
             -IdentityOutputPath $IdentityOutputPath
 
-        Send-WtcgMailNotification `
+        $sendResult = Send-WtcgMailNotification `
             -SmtpServer $SmtpServer `
             -Port $Port `
             -From $From `
@@ -2404,8 +2970,45 @@ function Send-WtcgErrorNotification {
             -AttachmentPath $attachments `
             -UseSsl:$UseSsl `
             -Credential $Credential
+
+        try {
+            Write-WtcgNotificationJsonlLog `
+                -Path $JsonlLogPath `
+                -Operation $Operation `
+                -Status 'sent' `
+                -Subject $Subject `
+                -To $To `
+                -Cc $Cc `
+                -SmtpServer $SmtpServer `
+                -XmlLogPath $XmlLogPath `
+                -IdentityOutputPath $IdentityOutputPath |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
+        }
+
+        $sendResult
     }
     catch {
+        try {
+            Write-WtcgNotificationJsonlLog `
+                -Path $JsonlLogPath `
+                -Operation $Operation `
+                -Status 'failed' `
+                -Subject $Subject `
+                -To $To `
+                -Cc $Cc `
+                -SmtpServer $SmtpServer `
+                -XmlLogPath $XmlLogPath `
+                -IdentityOutputPath $IdentityOutputPath `
+                -ErrorMessage $_.Exception.Message |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to write WinTaskCrossingGuard notification JSONL event: $($_.Exception.Message)"
+        }
+
         Write-Warning "Failed to send WinTaskCrossingGuard error email: $($_.Exception.Message)"
 
         if ($FailOnEmailError) {
@@ -2522,6 +3125,11 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         [string] $XmlLogPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlLogPath,
+
+        [Parameter()]
         [string] $ReenableTaskPath = '\WinTaskCrossingGuard\',
 
         [Parameter()]
@@ -2623,6 +3231,15 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
 
         Write-Host "XML error log written to: $($errorXmlLogFile.FullName)" -ForegroundColor Yellow
 
+        $errorJsonlLogFile = Write-WtcgErrorJsonlLog `
+            -ErrorRecord $_ `
+            -Path $JsonlLogPath `
+            -Operation 'DisableTasksInWindowAndScheduleReenable' `
+            -SelectionSource $SelectionPath `
+            -IdentityOutputPath $IdentityOutputPath
+
+        Write-Host "JSONL error log written to: $($errorJsonlLogFile.FullName)" -ForegroundColor Yellow
+
 
         if ($null -ne $errorMailSettings -and (Test-WtcgMailSettingsReady -MailSettings $errorMailSettings)) {
             $errorXmlLogPath = Resolve-WtcgXmlLogPath -Path $XmlLogPath
@@ -2632,6 +3249,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -ErrorRecord $_ `
                 -Operation 'DisableTasksInWindowAndScheduleReenable' `
                 -XmlLogPath $errorXmlLogFile.FullName `
+                -JsonlLogPath $errorJsonlLogFile.FullName `
                 -IdentityOutputPath $IdentityOutputPath
         }
 
@@ -2652,6 +3270,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -Subject $ErrorEmailSubject `
                 -Operation 'DisableTasksInWindowAndScheduleReenable' `
                 -XmlLogPath $errorXmlLogFile.FullName `
+                -JsonlLogPath $errorJsonlLogFile.FullName `
                 -IdentityOutputPath $IdentityOutputPath `
                 -UseSsl:$ErrorEmailUseSsl `
                 -Credential $ErrorEmailCredential `
@@ -2668,6 +3287,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     $resultMailSettings = ConvertTo-WtcgMailSettings -Mail $null
     $errorMailSettings = Get-WtcgMailSettingsForConfigurationError -SelectionPath $SelectionPath
     $xmlLogFile = $null
+    $jsonlLogFile = $null
 
     $window = Resolve-WtcgWindow -Start $Start -End $End
 
@@ -2763,9 +3383,27 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     Write-Host "XML disable log written to:"
     Write-Host "  $($xmlLogFile.FullName)"
 
+    $effectiveJsonlLogPath = Resolve-WtcgJsonlLogPath -Path $JsonlLogPath
+    if ($disabledTaskIdentities.Count -gt 0) {
+        $jsonlLogFile = $disabledTaskIdentities |
+            Write-WtcgDisableJsonlLog `
+                -Path $effectiveJsonlLogPath `
+                -WindowStart $window.Start `
+                -WindowEnd $window.End `
+                -ReenableAt $ReenableAt `
+                -SelectionSource $(if ($null -ne $selection) { $selection.SourcePath } else { $null }) `
+                -IdentityOutputPath $identityFile.FullName `
+                -ReenableTaskFullName "$(Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath)$ReenableTaskName" `
+                -Operation 'DisableTasksInWindowAndScheduleReenable'
+
+        Write-Host "JSONL disable log written to:"
+        Write-Host "  $($jsonlLogFile.FullName)"
+    }
+
     Send-WtcgLogGeneratedNotificationFromSettings `
         -MailSettings $resultMailSettings `
         -XmlLogPath $xmlLogFile.FullName `
+        -JsonlLogPath $effectiveJsonlLogPath `
         -IdentityOutputPath $identityFile.FullName `
         -Operation 'DisableTasksInWindowAndScheduleReenable'
 
@@ -2783,6 +3421,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             -Cc $LogEmailCc `
             -Subject $LogEmailSubject `
             -XmlLogPath $xmlLogFile.FullName `
+            -JsonlLogPath $effectiveJsonlLogPath `
             -IdentityOutputPath $identityFile.FullName `
             -Operation 'DisableTasksInWindowAndScheduleReenable' `
             -UseSsl:$LogEmailUseSsl `
@@ -2803,6 +3442,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         $quotedEnableScriptPath
         '-ManifestPath'
         $quotedIdentityPath
+        '-JsonlLogPath'
+        ('"' + $effectiveJsonlLogPath + '"')
     ) -join ' '
 
     $action = New-ScheduledTaskAction `
@@ -2874,6 +3515,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         DisabledTaskCount     = $disabledTaskIdentities.Count
         IdentityOutputPath    = $identityFile.FullName
         XmlLogPath            = $xmlLogFile.FullName
+        JsonlLogPath          = $effectiveJsonlLogPath
         ReenableAt            = $ReenableAt
         ReenableTaskPath      = $normalizedReenableTaskPath
         ReenableTaskName      = $ReenableTaskName
@@ -2883,6 +3525,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
 
 
     Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'logs') -WhatIf:$WhatIfPreference
+    Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steamablelogs') -Filter '*.jsonl' -WhatIf:$WhatIfPreference
 
     if ($PassThru) {
         $result

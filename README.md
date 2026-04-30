@@ -370,6 +370,65 @@ Default XML log path format:
 ```
 
 
+## SIEM-friendly JSONL event log
+
+The module also writes newline-delimited JSON events for SIEM and observability tools such as Splunk, Sentinel, Elastic, and Datadog. JSONL output complements the XML log instead of replacing it.
+
+JSONL events are written to `./steamablelogs/` by default, not `./logs/`:
+
+```text
+.\steamablelogs\wintaskcrossingguard-events-yyyyMMdd-HHmmss.jsonl
+```
+
+Core functions:
+
+```powershell
+Resolve-WtcgJsonlLogPath
+Write-WtcgDisableJsonlLog
+Write-WtcgReenableJsonlLog
+Write-WtcgErrorJsonlLog
+Write-WtcgNotificationJsonlLog
+```
+
+Each line is one compact JSON object with these top-level fields:
+
+```text
+schemaVersion
+source
+timestampUtc
+timestampLocal
+action
+operation
+status
+hostName
+userName
+processId
+details
+```
+
+Supported action values:
+
+```text
+disable
+re-enable
+error
+notification
+```
+
+Example disable run with an explicit JSONL path:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Disable-TasksInWindow.ps1 `
+  -Start '22:00' `
+  -End '06:00' `
+  -SelectionPath .\task-selection.example.json `
+  -XmlLogPath .\logs\disabled-tasks.xml `
+  -JsonlLogPath .\steamablelogs\disabled-tasks.jsonl
+```
+
+Scheduled re-enable workflows pass the generated JSONL path into `Restore-TasksFromManifest.ps1` so disable, notification, and re-enable events can land in the same streamable event file.
+
+
 ## Intranet SMTP email notifications
 
 The suite supports two separate email notification events:
@@ -626,7 +685,7 @@ Pester and real Windows Task Scheduler execution must be run on a Windows machin
 
 ## .env log retention
 
-The suite can clean up old XML logs at the end of successful execution.
+The suite can clean up old XML logs and JSONL event streams at the end of successful execution.
 
 Create a `.env` file next to `WinTaskCrossingGuard.psm1`:
 
@@ -637,8 +696,8 @@ LOG_RETENTION=30
 Meaning:
 
 ```text
-Keep XML log files in .\logs for 30 days.
-Delete .xml files older than 30 days at the end of execution.
+Keep XML log files in .\logs and JSONL files in .\steamablelogs for 30 days.
+Delete matching files older than 30 days at the end of execution.
 ```
 
 Example file included:
@@ -647,7 +706,7 @@ Example file included:
 .env.example
 ```
 
-Cleanup applies to XML files in the suite `logs` folder. Non-XML files are ignored.
+Cleanup applies to XML files in the suite `logs` folder and JSONL files in the suite `steamablelogs` folder when called with `-Filter '*.jsonl'`. Other file types are ignored.
 
 The cleanup function is:
 

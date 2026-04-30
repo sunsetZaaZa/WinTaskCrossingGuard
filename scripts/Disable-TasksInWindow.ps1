@@ -30,6 +30,11 @@ param(
     [string] $XmlLogPath,
 
     [Parameter()]
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string] $JsonlLogPath,
+
+    [Parameter()]
     [string] $LogEmailSmtpServer,
 
     [Parameter()]
@@ -119,6 +124,7 @@ try {
 $resultMailSettings = ConvertTo-WtcgMailSettings -Mail $null
 $errorMailSettings = Get-WtcgMailSettingsForConfigurationError -SelectionPath $SelectionPath
 $xmlLogFile = $null
+$jsonlLogFile = $null
 
 
 $window = Resolve-WtcgWindow -Start $Start -End $End
@@ -218,9 +224,24 @@ $xmlLogFile = $rollbackIdentities |
 
 Write-Host "XML disable log written to: $($xmlLogFile.FullName)"
 
+$effectiveJsonlLogPath = Resolve-WtcgJsonlLogPath -Path $JsonlLogPath
+if ($disabledTaskIdentities.Count -gt 0) {
+    $jsonlLogFile = $disabledTaskIdentities |
+        Write-WtcgDisableJsonlLog `
+            -Path $effectiveJsonlLogPath `
+            -WindowStart $window.Start `
+            -WindowEnd $window.End `
+            -SelectionSource $(if ($null -ne $selection) { $selection.SourcePath } else { $null }) `
+            -IdentityOutputPath $manifestFile.FullName `
+            -Operation 'DisableTasksInWindow'
+
+    Write-Host "JSONL disable log written to: $($jsonlLogFile.FullName)"
+}
+
 Send-WtcgLogGeneratedNotificationFromSettings `
     -MailSettings $resultMailSettings `
     -XmlLogPath $xmlLogFile.FullName `
+    -JsonlLogPath $effectiveJsonlLogPath `
     -IdentityOutputPath $manifestFile.FullName `
     -Operation 'DisableTasksInWindow'
 
@@ -238,6 +259,7 @@ if (-not [string]::IsNullOrWhiteSpace($LogEmailSmtpServer) -and
         -Cc $LogEmailCc `
         -Subject $LogEmailSubject `
         -XmlLogPath $xmlLogFile.FullName `
+        -JsonlLogPath $effectiveJsonlLogPath `
         -IdentityOutputPath $manifestFile.FullName `
         -Operation 'DisableTasksInWindow' `
         -UseSsl:$LogEmailUseSsl `
@@ -254,6 +276,7 @@ if (-not [string]::IsNullOrWhiteSpace($IdentityOutputPath)) {
 }
 
 Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'logs') -WhatIf:$WhatIfPreference
+Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steamablelogs') -Filter '*.jsonl' -WhatIf:$WhatIfPreference
 
 if ($ReturnTaskIdentity -or $PassThru) {
     $rollbackIdentities
@@ -277,6 +300,15 @@ catch {
 
     Write-Host "XML error log written to: $($errorXmlLogFile.FullName)" -ForegroundColor Yellow
 
+    $errorJsonlLogFile = Write-WtcgErrorJsonlLog `
+        -ErrorRecord $_ `
+        -Path $JsonlLogPath `
+        -Operation 'DisableTasksInWindow' `
+        -SelectionSource $SelectionPath `
+        -IdentityOutputPath $ManifestPath
+
+    Write-Host "JSONL error log written to: $($errorJsonlLogFile.FullName)" -ForegroundColor Yellow
+
     if ($null -ne $errorMailSettings -and (Test-WtcgMailSettingsReady -MailSettings $errorMailSettings)) {
         $errorXmlLogPath = Resolve-WtcgXmlLogPath -Path $XmlLogPath
 
@@ -285,6 +317,7 @@ catch {
             -ErrorRecord $_ `
             -Operation 'DisableTasksInWindow' `
             -XmlLogPath $errorXmlLogFile.FullName `
+            -JsonlLogPath $errorJsonlLogFile.FullName `
             -IdentityOutputPath $ManifestPath
     }
 
@@ -305,6 +338,7 @@ catch {
             -Subject $ErrorEmailSubject `
             -Operation 'DisableTasksInWindow' `
             -XmlLogPath $errorXmlLogFile.FullName `
+            -JsonlLogPath $errorJsonlLogFile.FullName `
             -IdentityOutputPath $ManifestPath `
             -UseSsl:$ErrorEmailUseSsl `
             -Credential $ErrorEmailCredential `

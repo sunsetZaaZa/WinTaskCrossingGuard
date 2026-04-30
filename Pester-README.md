@@ -66,6 +66,7 @@ That module contains the functional behavior:
 - disable/enable/start identity actions
 - manifest writing
 - XML disable log writing
+- SIEM-friendly JSONL event writing under steamablelogs
 - default XML log path resolution
 
 Wrapper scripts are intentionally smoke-tested for syntax and identity-file behavior, because they mostly forward parameters into the module.
@@ -94,6 +95,7 @@ No real scheduled tasks are required for the unit tests.
 
 - strict split JSON mail event validation
 - XML error log writing for configuration failures
+- JSONL error, re-enable, and notification event writing
 
 - safety allow-list mode behavior
 - protected never-disable task policy
