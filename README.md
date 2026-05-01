@@ -10,6 +10,7 @@ PowerShell 7 script suite for finding, disabling, enabling, and immediately star
 - `Enable-TaskIdentities.ps1` - enables tasks from piped identities or an identity JSON file.
 - `Start-TaskIdentities.ps1` - starts tasks immediately from piped identities or an identity JSON file.
 - `Restore-TasksFromManifest.ps1` - restores only tasks marked as disabled by this suite run in a rollback manifest.
+- `Emergency-RestoreLatestDisabledTasks.ps1` - finds the newest restorable identity or manifest JSON file and immediately re-enables those tasks.
 - `task-selection.example.json` - example selection policy.
 - `task-selection.schema.json` - JSON schema for editor validation.
 
@@ -117,6 +118,46 @@ $tasks | Format-Table TaskPath, TaskName, NextRunTime
   -SelectionPath .\task-selection.example.json `
   -ManifestPath .\rollback-manifest.json
 ```
+
+
+## Emergency restore latest
+
+Use the emergency restore script when a scheduled re-enable task did not fire, was deleted, or needs to be bypassed.
+
+```powershell
+.\Emergency-RestoreLatestDisabledTasks.ps1
+```
+
+By default it searches the central run root:
+
+```text
+.\runs
+```
+
+It scans for identity or manifest JSON files such as:
+
+```text
+.\runs\<runId>\manifests\rollback-manifest.json
+.\runs\<runId>\identities\*.json
+```
+
+The newest supported artifact is selected by file write time, then only tasks marked as originally enabled and disabled by WinTaskCrossingGuard are re-enabled immediately. Legacy identity files that do not contain `DisabledBySuite` are treated as restorable so older exports still work.
+
+Useful options:
+
+```powershell
+.\Emergency-RestoreLatestDisabledTasks.ps1 `
+  -RunRootPath .\runs `
+  -PassThru
+```
+
+```powershell
+.\Emergency-RestoreLatestDisabledTasks.ps1 `
+  -ArtifactPath .\runs\wtcg-20260429-120000-a1b2c3d4e5f6\manifests\rollback-manifest.json `
+  -PassThru
+```
+
+Emergency restore writes back into the same run folder when the artifact contains run correlation metadata. It emits JSONL re-enable/error events, a run report, and Windows Event Log audit events using the `WinTaskCrossingGuard` source unless Event Log writing is disabled.
 
 ## Return identities while disabling
 

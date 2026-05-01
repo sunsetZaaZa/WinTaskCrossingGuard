@@ -15,6 +15,7 @@ Describe 'Wrapper script availability' {
             'scripts\Enable-TaskIdentities.ps1'
             'scripts\Start-TaskIdentities.ps1'
             'scripts\Restore-TasksFromManifest.ps1'
+            'scripts\Emergency-RestoreLatestDisabledTasks.ps1'
         ) | ForEach-Object {
             Test-Path (Join-Path $script:ProjectRoot $_) | Should -BeTrue
         }
@@ -27,6 +28,7 @@ Describe 'Wrapper script availability' {
             'scripts\Enable-TaskIdentities.ps1'
             'scripts\Start-TaskIdentities.ps1'
             'scripts\Restore-TasksFromManifest.ps1'
+            'scripts\Emergency-RestoreLatestDisabledTasks.ps1'
         ) | ForEach-Object {
             $path = Join-Path $script:ProjectRoot $_
             $tokens = $null
