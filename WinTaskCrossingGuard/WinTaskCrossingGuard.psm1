@@ -1779,6 +1779,264 @@ function Resolve-WtcgXmlLogPath {
 }
 
 
+function Test-WtcgWindowsPlatform {
+    [CmdletBinding()]
+    param()
+
+    if ($null -ne $PSVersionTable -and $PSVersionTable.ContainsKey('Platform')) {
+        return ([string]$PSVersionTable.Platform -eq 'Win32NT')
+    }
+
+    return ([string]$env:OS -eq 'Windows_NT')
+}
+
+function Initialize-WtcgWindowsEventLogSource {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Source = 'WinTaskCrossingGuard',
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $LogName = 'Application',
+
+        [Parameter()]
+        [switch] $FailOnError
+    )
+
+    $result = [ordered]@{
+        Source       = $Source
+        LogName      = $LogName
+        IsWindows    = $false
+        SourceExists = $false
+        Created      = $false
+        Skipped      = $false
+        Error        = $null
+    }
+
+    if (-not (Test-WtcgWindowsPlatform)) {
+        $result.Skipped = $true
+        $result.Error = 'Windows Event Log is only available on Windows.'
+        return [pscustomobject]$result
+    }
+
+    $result.IsWindows = $true
+
+    try {
+        $result.SourceExists = [System.Diagnostics.EventLog]::SourceExists($Source)
+    }
+    catch {
+        $result.Error = $_.Exception.Message
+        if ($FailOnError) {
+            throw
+        }
+        return [pscustomobject]$result
+    }
+
+    if ($result.SourceExists) {
+        return [pscustomobject]$result
+    }
+
+    try {
+        if ($PSCmdlet.ShouldProcess("$LogName/$Source", 'Create Windows Event Log source')) {
+            $creationData = [System.Diagnostics.EventSourceCreationData]::new($Source, $LogName)
+            [System.Diagnostics.EventLog]::CreateEventSource($creationData)
+            $result.Created = $true
+            $result.SourceExists = $true
+        }
+    }
+    catch {
+        $result.Error = $_.Exception.Message
+        if ($FailOnError) {
+            throw
+        }
+    }
+
+    [pscustomobject]$result
+}
+
+function Write-WtcgWindowsEventLog {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateRange(1, 65535)]
+        [int] $EventId,
+
+        [Parameter()]
+        [ValidateSet('Information', 'Warning', 'Error')]
+        [string] $EntryType = 'Information',
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Message,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Source = 'WinTaskCrossingGuard',
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $LogName = 'Application',
+
+        [Parameter()]
+        [ValidateRange(0, 32767)]
+        [int] $Category = 0,
+
+        [Parameter()]
+        [bool] $EnsureSource = $true,
+
+        [Parameter()]
+        [switch] $FailOnError
+    )
+
+    $result = [ordered]@{
+        Source    = $Source
+        LogName   = $LogName
+        EventId   = $EventId
+        EntryType = $EntryType
+        Message   = $Message
+        Written   = $false
+        Skipped   = $false
+        Error     = $null
+    }
+
+    if (-not (Test-WtcgWindowsPlatform)) {
+        $result.Skipped = $true
+        $result.Error = 'Windows Event Log is only available on Windows.'
+        return [pscustomobject]$result
+    }
+
+    if ($EnsureSource) {
+        $sourceResult = Initialize-WtcgWindowsEventLogSource `
+            -Source $Source `
+            -LogName $LogName `
+            -FailOnError:$FailOnError
+
+        if (-not ([bool]$sourceResult.SourceExists)) {
+            $result.Skipped = $true
+            $result.Error = if (-not [string]::IsNullOrWhiteSpace([string]$sourceResult.Error)) {
+                [string]$sourceResult.Error
+            }
+            else {
+                "Windows Event Log source '$Source' does not exist and could not be created."
+            }
+            return [pscustomobject]$result
+        }
+    }
+
+    try {
+        if ($PSCmdlet.ShouldProcess("$LogName/$Source", "Write event $EventId")) {
+            $entryTypeValue = [System.Diagnostics.EventLogEntryType]::$EntryType
+            [System.Diagnostics.EventLog]::WriteEntry($Source, $Message, $entryTypeValue, $EventId, [int16]$Category)
+            $result.Written = $true
+        }
+    }
+    catch {
+        $result.Error = $_.Exception.Message
+        if ($FailOnError) {
+            throw
+        }
+    }
+
+    [pscustomobject]$result
+}
+
+function Write-WtcgAuditEvent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('disable', 'scheduled-reenable', 're-enable', 'error', 'notification')]
+        [string] $Action,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Operation = 'WinTaskCrossingGuard operation',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Status,
+
+        [Parameter(Mandatory)]
+        [ValidateRange(1, 65535)]
+        [int] $EventId,
+
+        [Parameter()]
+        [ValidateSet('Information', 'Warning', 'Error')]
+        [string] $EntryType = 'Information',
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Details,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $EventLogSource = 'WinTaskCrossingGuard',
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $EventLogName = 'Application',
+
+        [Parameter()]
+        [switch] $DisableEventLog,
+
+        [Parameter()]
+        [switch] $FailOnEventLogError
+    )
+
+    $now = Get-Date
+    $eventDetails = if ($null -ne $Details) { $Details } else { [ordered]@{} }
+    $payload = [ordered]@{
+        schemaVersion  = '1.0'
+        product        = 'WinTaskCrossingGuard'
+        eventSource    = $EventLogSource
+        timestampUtc   = $now.ToUniversalTime().ToString('o')
+        timestampLocal = $now.ToString('o')
+        action         = $Action
+        operation      = $Operation
+        status         = $Status
+        hostName       = $env:COMPUTERNAME
+        userName       = $env:USERNAME
+        processId      = $PID
+        details        = $eventDetails
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RunId)) {
+        $payload.runId = $RunId
+    }
+
+    $message = $payload | ConvertTo-Json -Depth 20 -Compress
+
+    if ($DisableEventLog) {
+        return [pscustomobject]@{
+            Source    = $EventLogSource
+            LogName   = $EventLogName
+            EventId   = $EventId
+            EntryType = $EntryType
+            Message   = $message
+            Written   = $false
+            Skipped   = $true
+            Error     = 'Windows Event Log auditing disabled by caller.'
+        }
+    }
+
+    Write-WtcgWindowsEventLog `
+        -Source $EventLogSource `
+        -LogName $EventLogName `
+        -EventId $EventId `
+        -EntryType $EntryType `
+        -Message $message `
+        -EnsureSource $true `
+        -FailOnError:$FailOnEventLogError
+}
+
 function Resolve-WtcgJsonlLogPath {
     [CmdletBinding()]
     param(
@@ -3565,6 +3823,20 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         [string] $JsonlLogPath,
 
         [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $EventLogSource = 'WinTaskCrossingGuard',
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $EventLogName = 'Application',
+
+        [Parameter()]
+        [switch] $DisableEventLog,
+
+        [Parameter()]
+        [switch] $FailOnEventLogError,
+
+        [Parameter()]
         [string] $ReenableTaskPath = '\WinTaskCrossingGuard\',
 
         [Parameter()]
@@ -3674,6 +3946,25 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             -IdentityOutputPath $IdentityOutputPath
 
         Write-Host "JSONL error log written to: $($errorJsonlLogFile.FullName)" -ForegroundColor Yellow
+        Write-WtcgAuditEvent `
+            -Action 'error' `
+            -Operation 'DisableTasksInWindowAndScheduleReenable' `
+            -Status 'failed' `
+            -EventId 5100 `
+            -EntryType 'Error' `
+            -Details ([ordered]@{
+                message = $_.Exception.Message
+                selectionSource = $SelectionPath
+                identityOutputPath = $IdentityOutputPath
+                xmlLogPath = if ($null -ne $errorXmlLogFile) { $errorXmlLogFile.FullName } else { $null }
+                jsonlLogPath = if ($null -ne $errorJsonlLogFile) { $errorJsonlLogFile.FullName } else { $null }
+            }) `
+            -EventLogSource $EventLogSource `
+            -EventLogName $EventLogName `
+            -DisableEventLog:$DisableEventLog `
+            -FailOnEventLogError:$FailOnEventLogError |
+            Out-Null
+
 
 
         if ($null -ne $errorMailSettings -and (Test-WtcgMailSettingsReady -MailSettings $errorMailSettings)) {
@@ -3842,6 +4133,30 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         Write-Host "JSONL disable log written to:"
         Write-Host "  $($jsonlLogFile.FullName)"
     }
+    Write-WtcgAuditEvent `
+        -Action 'disable' `
+        -Operation 'DisableTasksInWindowAndScheduleReenable' `
+        -Status 'succeeded' `
+        -EventId 4100 `
+        -EntryType 'Information' `
+        -Details ([ordered]@{
+            matchedTaskCount = $taskIdentities.Count
+            disabledTaskCount = $disabledTaskIdentities.Count
+            windowStart = $window.Start.ToString('o')
+            windowEnd = $window.End.ToString('o')
+            reenableAt = $ReenableAt.ToString('o')
+            selectionSource = if ($null -ne $selection) { $selection.SourcePath } else { $null }
+            identityOutputPath = $identityFile.FullName
+            xmlLogPath = $xmlLogFile.FullName
+            jsonlLogPath = $effectiveJsonlLogPath
+            reenableTaskFullName = "$(Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath)$ReenableTaskName"
+        }) `
+        -EventLogSource $EventLogSource `
+        -EventLogName $EventLogName `
+        -DisableEventLog:$DisableEventLog `
+        -FailOnEventLogError:$FailOnEventLogError |
+        Out-Null
+
 
     Send-WtcgLogGeneratedNotificationFromSettings `
         -MailSettings $resultMailSettings `
@@ -3876,16 +4191,33 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     $quotedEnableScriptPath = '"' + $EnableScriptPath + '"'
     $quotedIdentityPath = '"' + $identityFile.FullName + '"'
 
-    $reenableArguments = @(
-        '-NoProfile'
-        '-ExecutionPolicy Bypass'
-        '-File'
-        $quotedEnableScriptPath
-        '-ManifestPath'
-        $quotedIdentityPath
-        '-JsonlLogPath'
-        ('"' + $effectiveJsonlLogPath + '"')
-    ) -join ' '
+    $reenableArgumentList = [System.Collections.Generic.List[string]]::new()
+    foreach ($argumentPart in @(
+            '-NoProfile',
+            '-ExecutionPolicy Bypass',
+            '-File',
+            $quotedEnableScriptPath,
+            '-ManifestPath',
+            $quotedIdentityPath,
+            '-JsonlLogPath',
+            ('"' + $effectiveJsonlLogPath + '"'),
+            '-EventLogSource',
+            ('"' + $EventLogSource + '"'),
+            '-EventLogName',
+            ('"' + $EventLogName + '"')
+        )) {
+        $reenableArgumentList.Add($argumentPart)
+    }
+
+    if ($DisableEventLog) {
+        $reenableArgumentList.Add('-DisableEventLog')
+    }
+
+    if ($FailOnEventLogError) {
+        $reenableArgumentList.Add('-FailOnEventLogError')
+    }
+
+    $reenableArguments = $reenableArgumentList -join ' '
 
     $action = New-ScheduledTaskAction `
         -Execute $PowerShellExePath `
@@ -3909,6 +4241,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         -TaskPath $normalizedReenableTaskPath `
         -TaskName $ReenableTaskName `
         -ErrorAction SilentlyContinue
+
+    $reenableScheduleAction = if ($null -eq $existingTask) { 'created' } else { 'updated' }
 
     if ($null -eq $existingTask) {
         if ($PSCmdlet.ShouldProcess(
@@ -3949,6 +4283,27 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             Write-Host "  Re-enable at: $ReenableAt"
         }
     }
+
+    Write-WtcgAuditEvent `
+        -Action 'scheduled-reenable' `
+        -Operation 'DisableTasksInWindowAndScheduleReenable' `
+        -Status $reenableScheduleAction `
+        -EventId 4101 `
+        -EntryType 'Information' `
+        -Details ([ordered]@{
+            reenableAt = $ReenableAt.ToString('o')
+            reenableTaskPath = $normalizedReenableTaskPath
+            reenableTaskName = $ReenableTaskName
+            reenableTaskFullName = "$normalizedReenableTaskPath$ReenableTaskName"
+            identityOutputPath = $identityFile.FullName
+            jsonlLogPath = $effectiveJsonlLogPath
+            actionArguments = $reenableArguments
+        }) `
+        -EventLogSource $EventLogSource `
+        -EventLogName $EventLogName `
+        -DisableEventLog:$DisableEventLog `
+        -FailOnEventLogError:$FailOnEventLogError |
+        Out-Null
 
     $result = [pscustomobject]@{
         WindowStart           = $window.Start

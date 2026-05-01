@@ -200,7 +200,11 @@ Describe 'Disable-WtcgTasksInWindowAndScheduleReenable orchestration' {
                 $Execute -eq 'pwsh.exe' -and
                 $Argument -like '*Restore-TasksFromManifest.ps1*' -and
                 $Argument -like '*-ManifestPath*' -and
-                $Argument -like '*identities.json*'
+                $Argument -like '*identities.json*' -and
+                $Argument -like '*-JsonlLogPath*' -and
+                $Argument -like '*-EventLogSource*' -and
+                $Argument -like '*WinTaskCrossingGuard*' -and
+                $Argument -like '*-EventLogName*'
             }
 
             Should -Invoke New-ScheduledTaskTrigger -Times 1 -ParameterFilter {

@@ -28,7 +28,21 @@ param(
     [Parameter()]
     [AllowNull()]
     [AllowEmptyString()]
-    [string] $RunId
+    [string] $RunId,
+
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [string] $EventLogSource = 'WinTaskCrossingGuard',
+
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [string] $EventLogName = 'Application',
+
+    [Parameter()]
+    [switch] $DisableEventLog,
+
+    [Parameter()]
+    [switch] $FailOnEventLogError
 )
 
 Set-StrictMode -Version Latest
@@ -94,6 +108,25 @@ if ($restored.Count -gt 0) {
             -Operation 'RestoreTasksFromManifest' |
         Out-Null
 }
+Write-WtcgAuditEvent `
+    -Action 're-enable' `
+    -Operation 'RestoreTasksFromManifest' `
+    -Status 'succeeded' `
+    -EventId 4200 `
+    -EntryType 'Information' `
+    -Details ([ordered]@{
+        manifestPath = $ManifestPath
+        candidateTaskCount = $identities.Count
+        restoredTaskCount = $restored.Count
+        jsonlLogPath = $JsonlLogPath
+    }) `
+    -RunId $RunId `
+    -EventLogSource $EventLogSource `
+    -EventLogName $EventLogName `
+    -DisableEventLog:$DisableEventLog `
+    -FailOnEventLogError:$FailOnEventLogError |
+    Out-Null
+
 
 if ($PassThru) {
     $restored
@@ -107,6 +140,24 @@ catch {
         -IdentityOutputPath $ManifestPath `
         -RunId $RunId |
         Out-Null
+    Write-WtcgAuditEvent `
+        -Action 'error' `
+        -Operation 'RestoreTasksFromManifest' `
+        -Status 'failed' `
+        -EventId 5200 `
+        -EntryType 'Error' `
+        -Details ([ordered]@{
+            message = $_.Exception.Message
+            manifestPath = $ManifestPath
+            jsonlLogPath = $JsonlLogPath
+        }) `
+        -RunId $RunId `
+        -EventLogSource $EventLogSource `
+        -EventLogName $EventLogName `
+        -DisableEventLog:$DisableEventLog `
+        -FailOnEventLogError:$FailOnEventLogError |
+        Out-Null
+
 
     throw
 }
