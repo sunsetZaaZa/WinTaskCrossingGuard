@@ -96,6 +96,7 @@ No real scheduled tasks are required for the unit tests.
 - strict split JSON mail event validation
 - XML error log writing for configuration failures
 - JSONL error, re-enable, and notification event writing
+- Scheduled re-enable overlap detection and stale-task update behavior
 
 - safety allow-list mode behavior
 - protected never-disable task policy
