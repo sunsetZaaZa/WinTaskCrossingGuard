@@ -565,6 +565,50 @@ Disable-WtcgTasksInWindowAndScheduleReenable `
 ```
 
 Use `-FailOnEventLogError` when audit failure should fail the task operation instead of being skipped.
+
+## Webhook and ChatOps notifications
+
+In addition to SMTP, WinTaskCrossingGuard can post notifications to Microsoft Teams, Slack, and Discord webhooks. Webhook configuration lives in `.env` so secrets stay out of task-selection JSON files.
+
+Supported providers:
+
+```text
+Microsoft Teams incoming webhook / workflow webhook
+Slack incoming webhook
+Discord webhook
+```
+
+Global settings:
+
+```env
+WTCG_WEBHOOKS_ENABLED=true
+WTCG_WEBHOOK_TIMEOUT_SECONDS=15
+WTCG_WEBHOOK_FAIL_ON_ERROR=false
+```
+
+Provider settings:
+
+```env
+WTCG_WEBHOOK_TEAMS_ENABLED=false
+WTCG_WEBHOOK_TEAMS_URL=
+WTCG_WEBHOOK_TEAMS_EVENTS=result,error
+WTCG_WEBHOOK_TEAMS_FAIL_ON_ERROR=false
+
+WTCG_WEBHOOK_SLACK_ENABLED=false
+WTCG_WEBHOOK_SLACK_URL=
+WTCG_WEBHOOK_SLACK_EVENTS=result,error
+WTCG_WEBHOOK_SLACK_FAIL_ON_ERROR=false
+
+WTCG_WEBHOOK_DISCORD_ENABLED=false
+WTCG_WEBHOOK_DISCORD_URL=
+WTCG_WEBHOOK_DISCORD_EVENTS=result,error
+WTCG_WEBHOOK_DISCORD_FAIL_ON_ERROR=false
+```
+
+`*_EVENTS` accepts a comma-separated list of `result`, `error`, and `notification`. Result notifications are sent when logs/reports are generated. Error notifications are sent when a workflow fails. Webhook failures are non-fatal by default; set `WTCG_WEBHOOK_FAIL_ON_ERROR=true` or a provider-specific `*_FAIL_ON_ERROR=true` when ChatOps delivery should fail the operation.
+
+Webhook notification attempts are also written as JSONL notification events with channels such as `webhook:teams`, `webhook:slack`, and `webhook:discord`.
+
 ## Intranet SMTP email notifications
 
 The suite supports two separate email notification events:
