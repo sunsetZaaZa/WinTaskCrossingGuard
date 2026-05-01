@@ -876,8 +876,13 @@ function Get-WtcgActivePriorReenableRun {
         $reason = $null
 
         if ($run.IsExactConfiguredTask) {
-            $blocksRequestedRun = $true
-            $reason = 'configured re-enable task is already scheduled'
+            if ($null -eq $run.NextRunTime -or $run.NextRunTime -ge $newActiveStart) {
+                $blocksRequestedRun = $true
+                $reason = 'configured re-enable task is already scheduled'
+            }
+            else {
+                continue
+            }
         }
         elseif ($null -eq $run.WindowStart -or $null -eq $run.NextRunTime) {
             $blocksRequestedRun = $true
@@ -3708,7 +3713,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -FailOnEmailError:$FailOnErrorEmail
         }
 
-        throw
+        throw $_
     }
 
 
