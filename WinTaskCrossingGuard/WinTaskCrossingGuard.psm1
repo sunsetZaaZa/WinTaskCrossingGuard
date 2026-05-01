@@ -4714,7 +4714,6 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -AttachXmlLog `
                 -FailOnEmailError:$FailOnErrorEmail
         }
-
         throw $_.Exception.Message
     }
 
