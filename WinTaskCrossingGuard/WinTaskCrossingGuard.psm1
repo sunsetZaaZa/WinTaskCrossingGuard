@@ -288,6 +288,192 @@ function Import-WtcgTaskIdentity {
     }
 }
 
+function Get-WtcgRestoreArtifactTaskItems {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [object] $Artifact
+    )
+
+    if ($null -eq $Artifact) {
+        return @()
+    }
+
+    $tasks = Get-WtcgObjectPropertyValue -InputObject $Artifact -Name 'Tasks'
+    if ($null -ne $tasks) {
+        return @($tasks)
+    }
+
+    return @($Artifact)
+}
+
+function Test-WtcgRestoreArtifactTaskItem {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Task
+    )
+
+    if ($null -eq $Task) {
+        return $false
+    }
+
+    $taskPath = Get-WtcgObjectPropertyValue -InputObject $Task -Name 'TaskPath'
+    $taskName = Get-WtcgObjectPropertyValue -InputObject $Task -Name 'TaskName'
+
+    return (-not [string]::IsNullOrWhiteSpace([string]$taskPath) -and
+        -not [string]::IsNullOrWhiteSpace([string]$taskName))
+}
+
+function Test-WtcgRestorableTaskItem {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Task
+    )
+
+    if (-not (Test-WtcgRestoreArtifactTaskItem -Task $Task)) {
+        return $false
+    }
+
+    $wasOriginallyEnabled = [bool](Get-WtcgObjectPropertyValue -InputObject $Task -Name 'WasOriginallyEnabled' -DefaultValue $false)
+    $disabledBySuite = [bool](Get-WtcgObjectPropertyValue -InputObject $Task -Name 'DisabledBySuite' -DefaultValue $false)
+
+    return ($wasOriginallyEnabled -and $disabledBySuite)
+}
+
+function Get-WtcgRestoreArtifactSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+
+    try {
+        $item = Get-Item -LiteralPath $Path -ErrorAction Stop
+        if ($item.PSIsContainer) {
+            return $null
+        }
+
+        $artifact = Get-Content -LiteralPath $item.FullName -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        return $null
+    }
+
+    $taskItems = @(Get-WtcgRestoreArtifactTaskItems -Artifact $artifact)
+    $taskItems = @($taskItems | Where-Object { Test-WtcgRestoreArtifactTaskItem -Task $_ })
+    if ($taskItems.Count -eq 0) {
+        return $null
+    }
+
+    $restorableItems = @($taskItems | Where-Object { Test-WtcgRestorableTaskItem -Task $_ })
+    $kind = Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'Kind'
+    if ([string]::IsNullOrWhiteSpace([string]$kind)) {
+        $kind = 'WinTaskCrossingGuard.TaskIdentityList'
+    }
+
+    [pscustomobject]@{
+        PSTypeName            = 'WinTaskCrossingGuard.RestoreArtifactSummary'
+        Path                  = $item.FullName
+        Name                  = $item.Name
+        Kind                  = [string]$kind
+        LastWriteTimeUtc      = $item.LastWriteTimeUtc
+        RunId                 = Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'RunId'
+        RunFolderPath         = Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'RunFolderPath'
+        CreatedAt             = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'CreatedAt')
+        WindowStart           = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'WindowStart')
+        WindowEnd             = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $artifact -Name 'WindowEnd')
+        TaskCount             = $taskItems.Count
+        RestorableTaskCount   = $restorableItems.Count
+    }
+}
+
+function Find-WtcgLatestRestoreArtifact {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $SearchPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunRootPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'runs'),
+
+        [Parameter()]
+        [switch] $IncludeEmptyRestoreSets
+    )
+
+    $rootPath = if (-not [string]::IsNullOrWhiteSpace($SearchPath)) { $SearchPath } else { $RunRootPath }
+    if ([string]::IsNullOrWhiteSpace($rootPath) -or -not (Test-Path -LiteralPath $rootPath)) {
+        return $null
+    }
+
+    $summaries = foreach ($file in Get-ChildItem -LiteralPath $rootPath -Recurse -File -Filter '*.json' -ErrorAction SilentlyContinue) {
+        $summary = Get-WtcgRestoreArtifactSummary -Path $file.FullName
+        if ($null -eq $summary) {
+            continue
+        }
+
+        if ($IncludeEmptyRestoreSets -or $summary.RestorableTaskCount -gt 0) {
+            $summary
+        }
+    }
+
+    $orderedSummaries = @($summaries | Sort-Object -Property LastWriteTimeUtc, Path -Descending)
+    if ($orderedSummaries.Count -eq 0) {
+        return $null
+    }
+
+    return $orderedSummaries[0]
+}
+
+function Import-WtcgRestoreArtifactTaskIdentity {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Restore artifact JSON not found: $Path"
+    }
+
+    $artifact = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    $taskItems = @(Get-WtcgRestoreArtifactTaskItems -Artifact $artifact)
+
+    foreach ($item in $taskItems) {
+        if (-not (Test-WtcgRestorableTaskItem -Task $item)) {
+            continue
+        }
+
+        New-WtcgTaskIdentity `
+            -TaskPath ([string](Get-WtcgObjectPropertyValue -InputObject $item -Name 'TaskPath')) `
+            -TaskName ([string](Get-WtcgObjectPropertyValue -InputObject $item -Name 'TaskName')) `
+            -NextRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'NextRunTime') `
+            -State (Get-WtcgObjectPropertyValue -InputObject $item -Name 'State') `
+            -OriginalState (Get-WtcgObjectPropertyValue -InputObject $item -Name 'OriginalState') `
+            -WasOriginallyEnabled ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'WasOriginallyEnabled' -DefaultValue $true)) `
+            -DisabledBySuite ([bool](Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledBySuite' -DefaultValue $true)) `
+            -DisabledAt (Get-WtcgObjectPropertyValue -InputObject $item -Name 'DisabledAt') `
+            -LastRunTime (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastRunTime') `
+            -LastTaskResult (Get-WtcgObjectPropertyValue -InputObject $item -Name 'LastTaskResult') `
+            -Author (Get-WtcgObjectPropertyValue -InputObject $item -Name 'Author') `
+            -Description (Get-WtcgObjectPropertyValue -InputObject $item -Name 'Description')
+    }
+}
+
 function Export-WtcgTaskIdentity {
     [CmdletBinding()]
     param(
@@ -298,7 +484,17 @@ function Export-WtcgTaskIdentity {
         [string] $Path,
 
         [Parameter()]
-        [string] $Kind = 'TaskIdentityList'
+        [string] $Kind = 'TaskIdentityList',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath
     )
 
     begin {
@@ -328,9 +524,11 @@ function Export-WtcgTaskIdentity {
 
     end {
         $payload = [pscustomobject]@{
-            Kind      = $Kind
-            CreatedAt = (Get-Date)
-            Tasks     = $items
+            Kind          = $Kind
+            CreatedAt     = (Get-Date)
+            RunId         = $RunId
+            RunFolderPath = $RunFolderPath
+            Tasks         = $items
         }
 
         $directory = Split-Path -Parent $Path
@@ -531,6 +729,238 @@ function Exit-WtcgRuntimeLock {
 }
 
 
+
+function New-WtcgRunId {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Prefix = 'wtcg'
+    )
+
+    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $suffix = [guid]::NewGuid().ToString('N').Substring(0, 12)
+    return "$Prefix-$timestamp-$suffix"
+}
+
+function ConvertTo-WtcgSafePathName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $Value
+    )
+
+    $safe = $Value.Trim()
+    foreach ($invalidCharacter in [System.IO.Path]::GetInvalidFileNameChars()) {
+        $safe = $safe.Replace([string]$invalidCharacter, '-')
+    }
+
+    $safe = $safe -replace '\s+', '-'
+    $safe = $safe -replace '-{2,}', '-'
+    $safe = $safe.Trim('-')
+
+    if ([string]::IsNullOrWhiteSpace($safe)) {
+        throw 'RunId cannot resolve to an empty folder name.'
+    }
+
+    return $safe
+}
+
+function Resolve-WtcgRunRootPath {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path,
+
+        [Parameter()]
+        [string] $BaseDirectory = (Split-Path -Parent $PSScriptRoot)
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Path)) {
+        return $Path
+    }
+
+    return (Join-Path $BaseDirectory 'runs')
+}
+
+function New-WtcgRunContext {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunRootPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Operation = 'WinTaskCrossingGuard operation',
+
+        [Parameter()]
+        [datetime] $CreatedAt = (Get-Date)
+    )
+
+    $effectiveRunId = if ([string]::IsNullOrWhiteSpace($RunId)) { New-WtcgRunId } else { $RunId.Trim() }
+    $safeRunFolderName = ConvertTo-WtcgSafePathName -Value $effectiveRunId
+
+    $effectiveRunFolderPath = if (-not [string]::IsNullOrWhiteSpace($RunFolderPath)) {
+        $RunFolderPath
+    }
+    else {
+        Join-Path (Resolve-WtcgRunRootPath -Path $RunRootPath) $safeRunFolderName
+    }
+
+    $logsPath = Join-Path $effectiveRunFolderPath 'logs'
+    $jsonlLogsPath = Join-Path $effectiveRunFolderPath 'steamablelogs'
+    $manifestsPath = Join-Path $effectiveRunFolderPath 'manifests'
+    $identitiesPath = Join-Path $effectiveRunFolderPath 'identities'
+    $reportsPath = Join-Path $effectiveRunFolderPath 'reports'
+    $errorsPath = Join-Path $effectiveRunFolderPath 'errors'
+
+    foreach ($directory in @($effectiveRunFolderPath, $logsPath, $jsonlLogsPath, $manifestsPath, $identitiesPath, $reportsPath, $errorsPath)) {
+        if (-not [string]::IsNullOrWhiteSpace($directory)) {
+            New-Item -ItemType Directory -Path $directory -Force -WhatIf:$false | Out-Null
+        }
+    }
+
+    $context = [pscustomobject]@{
+        PSTypeName        = 'WinTaskCrossingGuard.RunContext'
+        RunId             = $effectiveRunId
+        RunFolderPath     = $effectiveRunFolderPath
+        LogsPath          = $logsPath
+        JsonlLogsPath     = $jsonlLogsPath
+        ManifestsPath     = $manifestsPath
+        IdentitiesPath    = $identitiesPath
+        ReportsPath       = $reportsPath
+        ErrorsPath        = $errorsPath
+        Operation         = $Operation
+        CreatedAt         = $CreatedAt
+        CreatedAtUtc      = $CreatedAt.ToUniversalTime().ToString('o')
+    }
+
+    $runInfoPath = Join-Path $effectiveRunFolderPath 'run-info.json'
+    [pscustomobject]@{
+        Kind          = 'WinTaskCrossingGuard.RunInfo'
+        Version       = 1
+        RunId         = $context.RunId
+        RunFolderPath = $context.RunFolderPath
+        Operation     = $Operation
+        CreatedAt     = $CreatedAt.ToString('o')
+        CreatedAtUtc  = $CreatedAt.ToUniversalTime().ToString('o')
+        HostName      = $env:COMPUTERNAME
+        UserName      = $env:USERNAME
+        ProcessId     = $PID
+        Folders       = [ordered]@{
+            logs           = $context.LogsPath
+            steamablelogs  = $context.JsonlLogsPath
+            manifests      = $context.ManifestsPath
+            identities     = $context.IdentitiesPath
+            reports        = $context.ReportsPath
+            errors         = $context.ErrorsPath
+        }
+    } | ConvertTo-Json -Depth 10 | Set-Content -Path $runInfoPath -Encoding utf8 -WhatIf:$false
+
+    $context | Add-Member -NotePropertyName RunInfoPath -NotePropertyValue $runInfoPath -Force
+    return $context
+}
+
+function Resolve-WtcgRunArtifactPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object] $RunContext,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Logs', 'JsonlLogs', 'Manifests', 'Identities', 'Reports', 'Errors')]
+        [string] $Kind,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $FileName
+    )
+
+    $folder = switch ($Kind) {
+        'Logs'       { $RunContext.LogsPath }
+        'JsonlLogs'  { $RunContext.JsonlLogsPath }
+        'Manifests'  { $RunContext.ManifestsPath }
+        'Identities' { $RunContext.IdentitiesPath }
+        'Reports'    { $RunContext.ReportsPath }
+        'Errors'     { $RunContext.ErrorsPath }
+    }
+
+    if ([string]::IsNullOrWhiteSpace([string]$folder)) {
+        throw "Run context does not contain a folder for artifact kind '$Kind'."
+    }
+
+    New-Item -ItemType Directory -Path $folder -Force -WhatIf:$false | Out-Null
+    return (Join-Path $folder $FileName)
+}
+
+function Save-WtcgRunReport {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object] $RunContext,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Operation = 'WinTaskCrossingGuard operation',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Status,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Details
+    )
+
+    $resolvedPath = if (-not [string]::IsNullOrWhiteSpace($Path)) {
+        $Path
+    }
+    else {
+        $safeOperationName = ConvertTo-WtcgSafePathName -Value $Operation.ToLowerInvariant()
+        Resolve-WtcgRunArtifactPath -RunContext $RunContext -Kind 'Reports' -FileName "$safeOperationName-report.json"
+    }
+
+    $directory = Split-Path -Parent $resolvedPath
+    if ($directory) {
+        New-Item -ItemType Directory -Path $directory -Force -WhatIf:$false | Out-Null
+    }
+
+    [pscustomobject]@{
+        Kind          = 'WinTaskCrossingGuard.RunReport'
+        Version       = 1
+        RunId         = $RunContext.RunId
+        RunFolderPath = $RunContext.RunFolderPath
+        Operation     = $Operation
+        Status        = $Status
+        CreatedAt     = (Get-Date).ToString('o')
+        Details       = if ($null -ne $Details) { $Details } else { [ordered]@{} }
+    } | ConvertTo-Json -Depth 20 | Set-Content -Path $resolvedPath -Encoding utf8 -WhatIf:$false
+
+    Get-Item -LiteralPath $resolvedPath
+}
+
 function ConvertTo-WtcgNullableDateTime {
     [CmdletBinding()]
     param(
@@ -668,6 +1098,8 @@ function Import-WtcgReenableManifestSummary {
         ManifestPath    = $Path
         ManifestExists  = $false
         ManifestKind    = $null
+        RunId           = $null
+        RunFolderPath   = $null
         CreatedAt       = $null
         WindowStart     = $null
         WindowEnd       = $null
@@ -684,6 +1116,8 @@ function Import-WtcgReenableManifestSummary {
     try {
         $manifest = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
         $summary.ManifestKind = Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'Kind'
+        $summary.RunId = Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'RunId'
+        $summary.RunFolderPath = Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'RunFolderPath'
         $summary.CreatedAt = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'CreatedAt')
         $summary.WindowStart = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'WindowStart')
         $summary.WindowEnd = ConvertTo-WtcgNullableDateTime -Value (Get-WtcgObjectPropertyValue -InputObject $manifest -Name 'WindowEnd')
@@ -737,12 +1171,20 @@ function Get-WtcgScheduledReenableRun {
     $argumentText = @(Get-WtcgScheduledTaskActionArgumentText -Task $Task)
     $manifestPath = $null
     $jsonlLogPath = $null
+    $runId = $null
+    $runFolderPath = $null
     foreach ($arguments in $argumentText) {
         if ([string]::IsNullOrWhiteSpace($manifestPath)) {
             $manifestPath = Get-WtcgCommandArgumentValue -Arguments $arguments -Name 'ManifestPath'
         }
         if ([string]::IsNullOrWhiteSpace($jsonlLogPath)) {
             $jsonlLogPath = Get-WtcgCommandArgumentValue -Arguments $arguments -Name 'JsonlLogPath'
+        }
+        if ([string]::IsNullOrWhiteSpace($runId)) {
+            $runId = Get-WtcgCommandArgumentValue -Arguments $arguments -Name 'RunId'
+        }
+        if ([string]::IsNullOrWhiteSpace($runFolderPath)) {
+            $runFolderPath = Get-WtcgCommandArgumentValue -Arguments $arguments -Name 'RunFolderPath'
         }
     }
 
@@ -774,6 +1216,12 @@ function Get-WtcgScheduledReenableRun {
         $manifestWindowStart = $manifestSummary.WindowStart
         $manifestWindowEnd = $manifestSummary.WindowEnd
         $manifestTaskFullNames = @($manifestSummary.TaskFullNames)
+        if ([string]::IsNullOrWhiteSpace($runId)) {
+            $runId = $manifestSummary.RunId
+        }
+        if ([string]::IsNullOrWhiteSpace($runFolderPath)) {
+            $runFolderPath = $manifestSummary.RunFolderPath
+        }
     }
 
     [pscustomobject]@{
@@ -787,6 +1235,8 @@ function Get-WtcgScheduledReenableRun {
         IsActive                = ($null -ne $nextRunTime -and $nextRunTime -gt $Now)
         ManifestPath            = $manifestPath
         JsonlLogPath            = $jsonlLogPath
+        RunId                   = $runId
+        RunFolderPath           = $runFolderPath
         WindowStart             = $manifestWindowStart
         WindowEnd               = $manifestWindowEnd
         TaskFullNames           = $manifestTaskFullNames
@@ -876,7 +1326,7 @@ function Get-WtcgActivePriorReenableRun {
         $reason = $null
 
         if ($run.IsExactConfiguredTask) {
-            if ($null -eq $run.NextRunTime -or $run.NextRunTime -ge $newActiveStart) {
+            if ($null -ne $run.NextRunTime -and $run.NextRunTime -ge $WindowStart) {
                 $blocksRequestedRun = $true
                 $reason = 'configured re-enable task is already scheduled'
             }
@@ -1556,7 +2006,17 @@ function Save-WtcgManifest {
 
         [Parameter()]
         [AllowNull()]
-        [object] $Selection
+        [object] $Selection,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath
     )
 
     begin {
@@ -1589,6 +2049,8 @@ function Save-WtcgManifest {
             Kind             = 'WinTaskCrossingGuard.RollbackManifest'
             ManifestVersion  = 1
             CreatedAt        = (Get-Date)
+            RunId            = $RunId
+            RunFolderPath    = $RunFolderPath
             WindowStart      = $WindowStart
             WindowEnd        = $WindowEnd
             SelectionSource  = if ($null -ne $Selection) { $Selection.SourcePath } else { $null }
@@ -1977,6 +2439,11 @@ function Write-WtcgAuditEvent {
         [string] $RunId,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
         [ValidateNotNullOrEmpty()]
         [string] $EventLogSource = 'WinTaskCrossingGuard',
 
@@ -2010,6 +2477,10 @@ function Write-WtcgAuditEvent {
 
     if (-not [string]::IsNullOrWhiteSpace($RunId)) {
         $payload.runId = $RunId
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RunFolderPath)) {
+        $payload.runFolderPath = $RunFolderPath
     }
 
     $message = $payload | ConvertTo-Json -Depth 20 -Compress
@@ -2084,6 +2555,11 @@ function New-WtcgJsonlEvent {
 
         [Parameter()]
         [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
+        [AllowNull()]
         [object] $Details,
 
         [Parameter()]
@@ -2116,6 +2592,10 @@ function New-WtcgJsonlEvent {
 
     if (-not [string]::IsNullOrWhiteSpace($RunId)) {
         $event.runId = $RunId
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RunFolderPath)) {
+        $event.runFolderPath = $RunFolderPath
     }
 
     $event.details = if ($null -ne $Details) { $Details } else { [ordered]@{} }
@@ -2210,6 +2690,11 @@ function Write-WtcgDisableJsonlLog {
         [string] $RunId,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
         [string] $Operation = 'DisableTasksInWindow'
     )
 
@@ -2255,6 +2740,7 @@ function Write-WtcgDisableJsonlLog {
                 -Operation $Operation `
                 -Status 'succeeded' `
                 -RunId $RunId `
+                -RunFolderPath $RunFolderPath `
                 -Details $details
         }
 
@@ -2287,6 +2773,11 @@ function Write-WtcgReenableJsonlLog {
         [AllowNull()]
         [AllowEmptyString()]
         [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
 
         [Parameter()]
         [string] $Operation = 'ReenableTaskIdentities'
@@ -2322,6 +2813,7 @@ function Write-WtcgReenableJsonlLog {
                 -Operation $Operation `
                 -Status 'succeeded' `
                 -RunId $RunId `
+                -RunFolderPath $RunFolderPath `
                 -Details $details
         }
 
@@ -2356,7 +2848,12 @@ function Write-WtcgErrorJsonlLog {
         [Parameter()]
         [AllowNull()]
         [AllowEmptyString()]
-        [string] $RunId
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath
     )
 
     $exception = $ErrorRecord.Exception
@@ -2377,6 +2874,7 @@ function Write-WtcgErrorJsonlLog {
         -Operation $Operation `
         -Status 'failed' `
         -RunId $RunId `
+        -RunFolderPath $RunFolderPath `
         -Details $details |
         Write-WtcgJsonlEvent -Path $Path
 }
@@ -2439,7 +2937,12 @@ function Write-WtcgNotificationJsonlLog {
         [Parameter()]
         [AllowNull()]
         [AllowEmptyString()]
-        [string] $RunId
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath
     )
 
     $details = [ordered]@{
@@ -2458,6 +2961,7 @@ function Write-WtcgNotificationJsonlLog {
         -Operation $Operation `
         -Status $Status `
         -RunId $RunId `
+        -RunFolderPath $RunFolderPath `
         -Details $details |
         Write-WtcgJsonlEvent -Path $Path
 }
@@ -2494,6 +2998,16 @@ function Write-WtcgDisableXmlLog {
         [Parameter()]
         [AllowNull()]
         [string] $ReenableTaskFullName,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
 
         [Parameter()]
         [string] $Operation = 'DisableTasksInWindow'
@@ -2540,6 +3054,12 @@ function Write-WtcgDisableXmlLog {
             $writer.WriteAttributeString('createdAt', $createdAt.ToString('o'))
             $writer.WriteAttributeString('createdLocal', $createdAt.ToString('yyyy-MM-dd HH:mm:ss zzz'))
             $writer.WriteAttributeString('operation', $Operation)
+            if (-not [string]::IsNullOrWhiteSpace($RunId)) {
+                $writer.WriteAttributeString('runId', $RunId)
+            }
+            if (-not [string]::IsNullOrWhiteSpace($RunFolderPath)) {
+                $writer.WriteElementString('RunFolderPath', $RunFolderPath)
+            }
 
             $writer.WriteStartElement('Window')
             $writer.WriteElementString('Start', $WindowStart.ToString('o'))
@@ -2628,7 +3148,17 @@ function Write-WtcgErrorXmlLog {
         [Parameter()]
         [AllowNull()]
         [AllowEmptyString()]
-        [string] $IdentityOutputPath
+        [string] $IdentityOutputPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath
     )
 
     $resolvedPath = Resolve-WtcgXmlLogPath -Path $Path -Prefix 'wintaskcrossingguard-error'
@@ -2654,6 +3184,13 @@ function Write-WtcgErrorXmlLog {
         $writer.WriteAttributeString('createdAt', $createdAt.ToString('o'))
         $writer.WriteAttributeString('createdLocal', $createdAt.ToString('yyyy-MM-dd HH:mm:ss zzz'))
         $writer.WriteAttributeString('operation', $Operation)
+        if (-not [string]::IsNullOrWhiteSpace($RunId)) {
+            $writer.WriteAttributeString('runId', $RunId)
+            $writer.WriteElementString('RunId', $RunId)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($RunFolderPath)) {
+            $writer.WriteElementString('RunFolderPath', $RunFolderPath)
+        }
 
         if (-not [string]::IsNullOrWhiteSpace($SelectionSource)) {
             $writer.WriteElementString('SelectionSource', $SelectionSource)
@@ -3018,6 +3555,16 @@ function Send-WtcgLogGeneratedNotificationFromSettings {
         [string] $JsonlLogPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
         [string] $Operation = 'WinTaskCrossingGuard log generated',
 
         [Parameter()]
@@ -3037,7 +3584,9 @@ function Send-WtcgLogGeneratedNotificationFromSettings {
         $body = New-WtcgLogGeneratedMailBody `
             -XmlLogPath $XmlLogPath `
             -IdentityOutputPath $IdentityOutputPath `
-            -Operation $Operation
+            -Operation $Operation `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath
 
         $sendResult = Send-WtcgMailNotification `
             -SmtpServer $MailSettings.SmtpServer `
@@ -3060,7 +3609,9 @@ function Send-WtcgLogGeneratedNotificationFromSettings {
                 -Cc $MailSettings.Cc `
                 -SmtpServer $MailSettings.SmtpServer `
                 -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath |
+                -IdentityOutputPath $IdentityOutputPath `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath |
                 Out-Null
         }
         catch {
@@ -3081,7 +3632,9 @@ function Send-WtcgLogGeneratedNotificationFromSettings {
                 -SmtpServer $MailSettings.SmtpServer `
                 -XmlLogPath $XmlLogPath `
                 -IdentityOutputPath $IdentityOutputPath `
-                -ErrorMessage $_.Exception.Message |
+                -ErrorMessage $_.Exception.Message `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath |
                 Out-Null
         }
         catch {
@@ -3125,6 +3678,16 @@ function Send-WtcgErrorNotificationFromSettings {
         [string] $JsonlLogPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
         [string] $Subject = 'WinTaskCrossingGuard error'
     )
 
@@ -3142,7 +3705,9 @@ function Send-WtcgErrorNotificationFromSettings {
             -ErrorRecord $ErrorRecord `
             -Operation $Operation `
             -XmlLogPath $XmlLogPath `
-            -IdentityOutputPath $IdentityOutputPath
+            -IdentityOutputPath $IdentityOutputPath `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath
 
         $sendResult = Send-WtcgMailNotification `
             -SmtpServer $MailSettings.SmtpServer `
@@ -3165,7 +3730,9 @@ function Send-WtcgErrorNotificationFromSettings {
                 -Cc $MailSettings.Cc `
                 -SmtpServer $MailSettings.SmtpServer `
                 -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath |
+                -IdentityOutputPath $IdentityOutputPath `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath |
                 Out-Null
         }
         catch {
@@ -3186,7 +3753,9 @@ function Send-WtcgErrorNotificationFromSettings {
                 -SmtpServer $MailSettings.SmtpServer `
                 -XmlLogPath $XmlLogPath `
                 -IdentityOutputPath $IdentityOutputPath `
-                -ErrorMessage $_.Exception.Message |
+                -ErrorMessage $_.Exception.Message `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath |
                 Out-Null
         }
         catch {
@@ -3326,6 +3895,16 @@ function New-WtcgLogGeneratedMailBody {
         [Parameter()]
         [AllowNull()]
         [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
         [string] $HostName = $env:COMPUTERNAME
     )
 
@@ -3340,6 +3919,12 @@ Host:
 
 Timestamp:
   $(Get-Date -Format 'o')
+
+Run ID:
+  $RunId
+
+Run folder:
+  $RunFolderPath
 
 XML log path:
   $XmlLogPath
@@ -3425,6 +4010,16 @@ function New-WtcgErrorMailBody {
         [Parameter()]
         [AllowNull()]
         [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
         [string] $HostName = $env:COMPUTERNAME
     )
 
@@ -3443,6 +4038,12 @@ Host:
 
 Timestamp:
   $(Get-Date -Format 'o')
+
+Run ID:
+  $RunId
+
+Run folder:
+  $RunFolderPath
 
 Error:
   $message
@@ -3499,6 +4100,16 @@ function Send-WtcgLogGeneratedNotification {
         [string] $JsonlLogPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
         [string] $Operation = 'WinTaskCrossingGuard log generated',
 
         [Parameter()]
@@ -3524,7 +4135,9 @@ function Send-WtcgLogGeneratedNotification {
         $body = New-WtcgLogGeneratedMailBody `
             -XmlLogPath $XmlLogPath `
             -IdentityOutputPath $IdentityOutputPath `
-            -Operation $Operation
+            -Operation $Operation `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath
 
         $sendResult = Send-WtcgMailNotification `
             -SmtpServer $SmtpServer `
@@ -3548,7 +4161,9 @@ function Send-WtcgLogGeneratedNotification {
                 -Cc $Cc `
                 -SmtpServer $SmtpServer `
                 -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath |
+                -IdentityOutputPath $IdentityOutputPath `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath |
                 Out-Null
         }
         catch {
@@ -3569,7 +4184,9 @@ function Send-WtcgLogGeneratedNotification {
                 -SmtpServer $SmtpServer `
                 -XmlLogPath $XmlLogPath `
                 -IdentityOutputPath $IdentityOutputPath `
-                -ErrorMessage $_.Exception.Message |
+                -ErrorMessage $_.Exception.Message `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath |
                 Out-Null
         }
         catch {
@@ -3627,6 +4244,16 @@ function Send-WtcgErrorNotification {
         [string] $JsonlLogPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
         [switch] $UseSsl,
 
         [Parameter()]
@@ -3650,7 +4277,9 @@ function Send-WtcgErrorNotification {
             -ErrorRecord $ErrorRecord `
             -Operation $Operation `
             -XmlLogPath $XmlLogPath `
-            -IdentityOutputPath $IdentityOutputPath
+            -IdentityOutputPath $IdentityOutputPath `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath
 
         $sendResult = Send-WtcgMailNotification `
             -SmtpServer $SmtpServer `
@@ -3674,7 +4303,9 @@ function Send-WtcgErrorNotification {
                 -Cc $Cc `
                 -SmtpServer $SmtpServer `
                 -XmlLogPath $XmlLogPath `
-                -IdentityOutputPath $IdentityOutputPath |
+                -IdentityOutputPath $IdentityOutputPath `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath |
                 Out-Null
         }
         catch {
@@ -3695,7 +4326,9 @@ function Send-WtcgErrorNotification {
                 -SmtpServer $SmtpServer `
                 -XmlLogPath $XmlLogPath `
                 -IdentityOutputPath $IdentityOutputPath `
-                -ErrorMessage $_.Exception.Message |
+                -ErrorMessage $_.Exception.Message `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath |
                 Out-Null
         }
         catch {
@@ -3823,6 +4456,26 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         [string] $JsonlLogPath,
 
         [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunRootPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $RunFolderPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ReportPath,
+
+        [Parameter()]
         [ValidateNotNullOrEmpty()]
         [string] $EventLogSource = 'WinTaskCrossingGuard',
 
@@ -3923,6 +4576,39 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
     $runtimeLock = $null
+    $resultMailSettings = ConvertTo-WtcgMailSettings -Mail $null
+    $errorMailSettings = $null
+    $xmlLogFile = $null
+    $jsonlLogFile = $null
+    $reportFile = $null
+
+    $runContext = New-WtcgRunContext `
+        -RunId $RunId `
+        -RunRootPath $RunRootPath `
+        -RunFolderPath $RunFolderPath `
+        -Operation 'DisableTasksInWindowAndScheduleReenable'
+
+    $RunId = $runContext.RunId
+    $RunFolderPath = $runContext.RunFolderPath
+
+    if (-not $PSBoundParameters.ContainsKey('IdentityOutputPath') -or [string]::IsNullOrWhiteSpace($IdentityOutputPath)) {
+        $IdentityOutputPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Manifests' -FileName 'rollback-manifest.json'
+    }
+
+    if (-not $PSBoundParameters.ContainsKey('XmlLogPath') -or [string]::IsNullOrWhiteSpace($XmlLogPath)) {
+        $XmlLogPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Logs' -FileName 'disabled-tasks.xml'
+    }
+
+    if (-not $PSBoundParameters.ContainsKey('JsonlLogPath') -or [string]::IsNullOrWhiteSpace($JsonlLogPath)) {
+        $JsonlLogPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'JsonlLogs' -FileName 'wintaskcrossingguard-events.jsonl'
+    }
+
+    if (-not $PSBoundParameters.ContainsKey('ReportPath') -or [string]::IsNullOrWhiteSpace($ReportPath)) {
+        $ReportPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Reports' -FileName 'disable-schedule-report.json'
+    }
+
+    $effectiveErrorXmlLogPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Errors' -FileName 'wintaskcrossingguard-error.xml'
+    $effectiveErrorReportPath = Resolve-WtcgRunArtifactPath -RunContext $runContext -Kind 'Errors' -FileName 'disable-schedule-error-report.json'
 
     trap {
         Exit-WtcgRuntimeLock -Lock $runtimeLock -ErrorAction SilentlyContinue
@@ -3931,10 +4617,12 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
 
         $errorXmlLogFile = Write-WtcgErrorXmlLog `
             -ErrorRecord $_ `
-            -Path $XmlLogPath `
+            -Path $effectiveErrorXmlLogPath `
             -Operation 'DisableTasksInWindowAndScheduleReenable' `
             -SelectionSource $SelectionPath `
-            -IdentityOutputPath $IdentityOutputPath
+            -IdentityOutputPath $IdentityOutputPath `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath
 
         Write-Host "XML error log written to: $($errorXmlLogFile.FullName)" -ForegroundColor Yellow
 
@@ -3943,9 +4631,26 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             -Path $JsonlLogPath `
             -Operation 'DisableTasksInWindowAndScheduleReenable' `
             -SelectionSource $SelectionPath `
-            -IdentityOutputPath $IdentityOutputPath
+            -IdentityOutputPath $IdentityOutputPath `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath
 
         Write-Host "JSONL error log written to: $($errorJsonlLogFile.FullName)" -ForegroundColor Yellow
+
+        Save-WtcgRunReport `
+            -RunContext $runContext `
+            -Path $effectiveErrorReportPath `
+            -Operation 'DisableTasksInWindowAndScheduleReenable' `
+            -Status 'failed' `
+            -Details ([ordered]@{
+                message = $_.Exception.Message
+                selectionSource = $SelectionPath
+                identityOutputPath = $IdentityOutputPath
+                xmlLogPath = if ($null -ne $errorXmlLogFile) { $errorXmlLogFile.FullName } else { $null }
+                jsonlLogPath = if ($null -ne $errorJsonlLogFile) { $errorJsonlLogFile.FullName } else { $null }
+            }) |
+            Out-Null
+
         Write-WtcgAuditEvent `
             -Action 'error' `
             -Operation 'DisableTasksInWindowAndScheduleReenable' `
@@ -3959,6 +4664,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 xmlLogPath = if ($null -ne $errorXmlLogFile) { $errorXmlLogFile.FullName } else { $null }
                 jsonlLogPath = if ($null -ne $errorJsonlLogFile) { $errorJsonlLogFile.FullName } else { $null }
             }) `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath `
             -EventLogSource $EventLogSource `
             -EventLogName $EventLogName `
             -DisableEventLog:$DisableEventLog `
@@ -3976,7 +4683,9 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -Operation 'DisableTasksInWindowAndScheduleReenable' `
                 -XmlLogPath $errorXmlLogFile.FullName `
                 -JsonlLogPath $errorJsonlLogFile.FullName `
-                -IdentityOutputPath $IdentityOutputPath
+                -IdentityOutputPath $IdentityOutputPath `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath
         }
 
         if (-not [string]::IsNullOrWhiteSpace($ErrorEmailSmtpServer) -and
@@ -3998,22 +4707,20 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -XmlLogPath $errorXmlLogFile.FullName `
                 -JsonlLogPath $errorJsonlLogFile.FullName `
                 -IdentityOutputPath $IdentityOutputPath `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath `
                 -UseSsl:$ErrorEmailUseSsl `
                 -Credential $ErrorEmailCredential `
                 -AttachXmlLog `
                 -FailOnEmailError:$FailOnErrorEmail
         }
-
-        throw $_
+        throw $_.Exception.Message
     }
 
 
     Import-Module ScheduledTasks -ErrorAction Stop
 
-    $resultMailSettings = ConvertTo-WtcgMailSettings -Mail $null
     $errorMailSettings = Get-WtcgMailSettingsForConfigurationError -SelectionPath $SelectionPath
-    $xmlLogFile = $null
-    $jsonlLogFile = $null
 
     $window = Resolve-WtcgWindow -Start $Start -End $End
     $normalizedReenableTaskPath = Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath
@@ -4027,6 +4734,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             -SkipLockFile:$WhatIfPreference `
             -Metadata @{
                 Operation = 'DisableTasksInWindowAndScheduleReenable'
+                RunId = $RunId
+                RunFolderPath = $RunFolderPath
                 WindowStart = $window.Start
                 WindowEnd = $window.End
                 IdentityOutputPath = $IdentityOutputPath
@@ -4063,6 +4772,18 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
 
     if ($taskIdentities.Count -eq 0) {
         Write-Host "No tasks found inside $($window.Start) -> $($window.End)."
+        $reportFile = Save-WtcgRunReport `
+            -RunContext $runContext `
+            -Path $ReportPath `
+            -Operation 'DisableTasksInWindowAndScheduleReenable' `
+            -Status 'no-matching-tasks' `
+            -Details ([ordered]@{
+                windowStart = $window.Start.ToString('o')
+                windowEnd = $window.End.ToString('o')
+                reenableAt = $ReenableAt.ToString('o')
+                selectionSource = if ($null -ne $selection) { $selection.SourcePath } else { $null }
+            })
+        Write-Host "Run report written to: $($reportFile.FullName)"
         Exit-WtcgRuntimeLock -Lock $runtimeLock
         $runtimeLock = $null
         return
@@ -4098,7 +4819,9 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             -Path $IdentityOutputPath `
             -WindowStart $window.Start `
             -WindowEnd $window.End `
-            -Selection $selection
+            -Selection $selection `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath
 
     Write-Host "Saved rollback manifest to:"
     Write-Host "  $($identityFile.FullName)"
@@ -4112,6 +4835,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             -SelectionSource $(if ($null -ne $selection) { $selection.SourcePath } else { $null }) `
             -IdentityOutputPath $identityFile.FullName `
             -ReenableTaskFullName "$(Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath)$ReenableTaskName" `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath `
             -Operation 'DisableTasksInWindowAndScheduleReenable'
 
     Write-Host "XML disable log written to:"
@@ -4128,6 +4853,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -SelectionSource $(if ($null -ne $selection) { $selection.SourcePath } else { $null }) `
                 -IdentityOutputPath $identityFile.FullName `
                 -ReenableTaskFullName "$(Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath)$ReenableTaskName" `
+                -RunId $RunId `
+                -RunFolderPath $RunFolderPath `
                 -Operation 'DisableTasksInWindowAndScheduleReenable'
 
         Write-Host "JSONL disable log written to:"
@@ -4149,8 +4876,12 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             identityOutputPath = $identityFile.FullName
             xmlLogPath = $xmlLogFile.FullName
             jsonlLogPath = $effectiveJsonlLogPath
+            runFolderPath = $RunFolderPath
+            runInfoPath = $runContext.RunInfoPath
             reenableTaskFullName = "$(Normalize-WtcgTaskPath -TaskPath $ReenableTaskPath)$ReenableTaskName"
         }) `
+        -RunId $RunId `
+        -RunFolderPath $RunFolderPath `
         -EventLogSource $EventLogSource `
         -EventLogName $EventLogName `
         -DisableEventLog:$DisableEventLog `
@@ -4163,6 +4894,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
         -XmlLogPath $xmlLogFile.FullName `
         -JsonlLogPath $effectiveJsonlLogPath `
         -IdentityOutputPath $identityFile.FullName `
+        -RunId $RunId `
+        -RunFolderPath $RunFolderPath `
         -Operation 'DisableTasksInWindowAndScheduleReenable'
 
 
@@ -4181,6 +4914,8 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             -XmlLogPath $xmlLogFile.FullName `
             -JsonlLogPath $effectiveJsonlLogPath `
             -IdentityOutputPath $identityFile.FullName `
+            -RunId $RunId `
+            -RunFolderPath $RunFolderPath `
             -Operation 'DisableTasksInWindowAndScheduleReenable' `
             -UseSsl:$LogEmailUseSsl `
             -Credential $LogEmailCredential `
@@ -4201,6 +4936,10 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             $quotedIdentityPath,
             '-JsonlLogPath',
             ('"' + $effectiveJsonlLogPath + '"'),
+            '-RunId',
+            ('"' + $RunId + '"'),
+            '-RunFolderPath',
+            ('"' + $RunFolderPath + '"'),
             '-EventLogSource',
             ('"' + $EventLogSource + '"'),
             '-EventLogName',
@@ -4297,15 +5036,42 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
             reenableTaskFullName = "$normalizedReenableTaskPath$ReenableTaskName"
             identityOutputPath = $identityFile.FullName
             jsonlLogPath = $effectiveJsonlLogPath
+            runFolderPath = $RunFolderPath
             actionArguments = $reenableArguments
         }) `
+        -RunId $RunId `
+        -RunFolderPath $RunFolderPath `
         -EventLogSource $EventLogSource `
         -EventLogName $EventLogName `
         -DisableEventLog:$DisableEventLog `
         -FailOnEventLogError:$FailOnEventLogError |
         Out-Null
 
+    $reportFile = Save-WtcgRunReport `
+        -RunContext $runContext `
+        -Path $ReportPath `
+        -Operation 'DisableTasksInWindowAndScheduleReenable' `
+        -Status 'succeeded' `
+        -Details ([ordered]@{
+            matchedTaskCount = $taskIdentities.Count
+            disabledTaskCount = $disabledTaskIdentities.Count
+            windowStart = $window.Start.ToString('o')
+            windowEnd = $window.End.ToString('o')
+            reenableAt = $ReenableAt.ToString('o')
+            identityOutputPath = $identityFile.FullName
+            xmlLogPath = $xmlLogFile.FullName
+            jsonlLogPath = $effectiveJsonlLogPath
+            reenableTaskFullName = "$normalizedReenableTaskPath$ReenableTaskName"
+        })
+
+    Write-Host "Run report written to:"
+    Write-Host "  $($reportFile.FullName)"
+
     $result = [pscustomobject]@{
+        RunId                 = $RunId
+        RunFolderPath         = $RunFolderPath
+        RunInfoPath           = $runContext.RunInfoPath
+        ReportPath            = $reportFile.FullName
         WindowStart           = $window.Start
         WindowEnd             = $window.End
         DisabledTaskCount     = $disabledTaskIdentities.Count

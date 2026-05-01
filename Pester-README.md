@@ -65,8 +65,10 @@ That module contains the functional behavior:
 - identity import/export
 - disable/enable/start identity actions
 - manifest writing
-- XML disable log writing
-- SIEM-friendly JSONL event writing under steamablelogs
+- central run folder/run ID creation and artifact path routing
+- run report writing
+- XML disable log writing with run correlation fields
+- SIEM-friendly JSONL event writing under steamablelogs with run correlation fields
 - Windows Event Log audit event formatting for the WinTaskCrossingGuard source
 - default XML log path resolution
 
@@ -98,6 +100,7 @@ No real scheduled tasks are required for the unit tests.
 - XML error log writing for configuration failures
 - JSONL error, re-enable, and notification event writing
 - Scheduled re-enable overlap detection and stale-task update behavior
+- Central run folder and run ID correlation across logs, manifests, and reports
 - Windows Event Log audit integration
 
 - safety allow-list mode behavior

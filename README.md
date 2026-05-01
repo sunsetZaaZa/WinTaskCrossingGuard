@@ -290,6 +290,49 @@ If the re-enable scheduled task already exists but is stale, the function update
 If the configured re-enable task is still active, or another active WinTaskCrossingGuard re-enable task in the same folder overlaps the requested disable-to-reenable interval, orchestration stops before disabling any tasks. This protects a prior run's manifest and prevents an earlier scheduled restore from re-enabling tasks during a later maintenance window.
 
 
+## Central run folder and run ID
+
+Every disable or scheduled disable operation now gets a run/correlation ID and a central operation folder. By default, the folder is created under `./runs/<runId>/`. Pass `-RunId` when an external change ticket, maintenance ID, or SIEM correlation ID already exists. Pass `-RunRootPath` to move all generated run folders, or `-RunFolderPath` to force one exact operation folder.
+
+Default run layout:
+
+```text
+./runs/<runId>/
+  run-info.json
+  logs/
+    disabled-tasks.xml
+  steamablelogs/
+    wintaskcrossingguard-events.jsonl
+  manifests/
+    rollback-manifest.json
+  identities/
+    matched-window-tasks.json
+  reports/
+    disable-report.json
+    disable-schedule-report.json
+    restore-report.json
+  errors/
+    wintaskcrossingguard-error.xml
+    disable-error-report.json
+    disable-schedule-error-report.json
+    restore-error-report.json
+```
+
+The run ID is propagated into `run-info.json`, XML logs, JSONL events, rollback manifests, task identity files, run reports, Windows Event Log JSON payloads, notification bodies/events, runtime lock metadata, and the scheduled restore task arguments. Scheduled restore scripts infer the run folder from a manifest stored in `manifests/`, so restore events and reports stay in the same operation folder when possible.
+
+Explicit artifact paths still work. For example, `-XmlLogPath`, `-JsonlLogPath`, `-ManifestPath`, `-IdentityOutputPath`, and `-ReportPath` override the default path for that specific artifact while preserving run correlation metadata inside the artifact.
+
+Example with an external change ID:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\Disable-TasksInWindow.ps1 `
+  -Start '22:00' `
+  -End '06:00' `
+  -RunId 'CHG0123456' `
+  -RunRootPath .\runs
+```
+
+
 ## Pester unit tests with 90% coverage gate
 
 The suite includes Pester tests under:
@@ -323,7 +366,7 @@ Core function:
 Write-WtcgDisableXmlLog
 ```
 
-The regular disable script writes an XML log by default. When `-XmlLogPath` is not provided, the log is written under `.\logs\` with the current date and time in the filename:
+The regular disable script writes an XML log by default. When `-XmlLogPath` is not provided, the log is written inside the central run folder under `logs\disabled-tasks.xml`:
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Disable-TasksInWindow.ps1 `
@@ -350,6 +393,8 @@ The XML log includes:
 createdAt timestamp
 createdLocal timestamp
 operation name
+run/correlation ID
+run folder path
 window start/end
 optional re-enable time
 optional selection source
@@ -366,10 +411,10 @@ per-task logged timestamp
 ```
 
 
-Default XML log path format:
+Default XML log path format inside a run:
 
 ```text
-.\logs\disabled-tasks-yyyyMMdd-HHmmss.xml
+.\runs\<runId>\logs\disabled-tasks.xml
 ```
 
 
@@ -377,10 +422,10 @@ Default XML log path format:
 
 The module also writes newline-delimited JSON events for SIEM and observability tools such as Splunk, Sentinel, Elastic, and Datadog. JSONL output complements the XML log instead of replacing it.
 
-JSONL events are written to `./steamablelogs/` by default, not `./logs/`:
+JSONL events are written to the central run folder's `steamablelogs/` directory by default, not the root `./logs/` folder:
 
 ```text
-.\steamablelogs\wintaskcrossingguard-events-yyyyMMdd-HHmmss.jsonl
+.\runs\<runId>\steamablelogs\wintaskcrossingguard-events.jsonl
 ```
 
 Core functions:
@@ -406,6 +451,8 @@ status
 hostName
 userName
 processId
+runId
+runFolderPath
 details
 ```
 
@@ -429,7 +476,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\Disable-TasksInWindow.ps1 `
   -JsonlLogPath .\steamablelogs\disabled-tasks.jsonl
 ```
 
-Scheduled re-enable workflows pass the generated JSONL path into `Restore-TasksFromManifest.ps1` so disable, notification, and re-enable events can land in the same streamable event file.
+Scheduled re-enable workflows pass the generated JSONL path, `-RunId`, and `-RunFolderPath` into `Restore-TasksFromManifest.ps1` so disable, notification, and re-enable events can land in the same streamable event file and share the same correlation ID.
 
 
 
@@ -444,7 +491,7 @@ Log name: Application
 Source: WinTaskCrossingGuard
 ```
 
-The event message is compact JSON with operation, action, status, host, user, process ID, and action-specific details. The integration is non-fatal by default: if the `WinTaskCrossingGuard` source does not exist and the current process cannot create it, the XML and JSONL logs still succeed.
+The event message is compact JSON with operation, action, status, host, user, process ID, run ID, run folder path, and action-specific details. The integration is non-fatal by default: if the `WinTaskCrossingGuard` source does not exist and the current process cannot create it, the XML and JSONL logs still succeed.
 
 Common event IDs:
 
@@ -744,7 +791,7 @@ LOG_RETENTION=30
 Meaning:
 
 ```text
-Keep XML log files in .\logs and JSONL files in .\steamablelogs for 30 days.
+Keep legacy XML log files in .\logs and legacy JSONL files in .\steamablelogs for 30 days. Central run folders under .\runs are not pruned by this legacy log-retention helper yet.
 Delete matching files older than 30 days at the end of execution.
 ```
 
@@ -754,7 +801,7 @@ Example file included:
 .env.example
 ```
 
-Cleanup applies to XML files in the suite `logs` folder and JSONL files in the suite `steamablelogs` folder when called with `-Filter '*.jsonl'`. Other file types are ignored.
+Cleanup applies to XML files in the suite `logs` folder and JSONL files in the suite `steamablelogs` folder when called with `-Filter '*.jsonl'`. Central run folders are intentionally left intact for audit review unless an operator removes them. Other file types are ignored.
 
 The cleanup function is:
 
