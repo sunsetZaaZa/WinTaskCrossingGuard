@@ -217,7 +217,119 @@ Describe 'Disable-WtcgTasksInWindowAndScheduleReenable orchestration' {
         }
     }
 
-    It 'updates the existing re-enable scheduled task trigger when the task already exists' {
+    It 'blocks a new run when the configured re-enable task is still active' {
+        InModuleScope WinTaskCrossingGuard {
+            Mock Import-Module {}
+            Mock Get-ScheduledTask -ParameterFilter {
+                $TaskName -eq 'ReenableDisabledTasks'
+            } {
+                [pscustomobject]@{
+                    TaskPath = '\WinTaskCrossingGuard\'
+                    TaskName = 'ReenableDisabledTasks'
+                    State = 'Ready'
+                    Description = 'Re-enables tasks disabled by WinTaskCrossingGuard.'
+                }
+            }
+            Mock Get-ScheduledTaskInfo -ParameterFilter {
+                $TaskName -eq 'ReenableDisabledTasks'
+            } {
+                [pscustomobject]@{
+                    NextRunTime = [datetime]'2030-01-02T18:00:00'
+                    LastRunTime = [datetime]'2030-01-01T01:00:00'
+                    LastTaskResult = 0
+                }
+            }
+            Mock Disable-ScheduledTask {}
+            Mock Invoke-WtcgRegisterScheduledTask {}
+            Mock Invoke-WtcgSetScheduledTask {}
+
+            {
+                Disable-WtcgTasksInWindowAndScheduleReenable `
+                    -Start '2030-01-02T08:00:00' `
+                    -End '2030-01-02T17:00:00' `
+                    -ReenableAt ([datetime]'2030-01-02T19:00:00') `
+                    -IdentityOutputPath $script:IdentityPath `
+                    -XmlLogPath (Join-Path $script:TempDir 'overlap-error.xml') `
+                    -JsonlLogPath (Join-Path $script:TempDir 'overlap-error.jsonl') `
+                    -ReenableTaskPath '\WinTaskCrossingGuard\' `
+                    -ReenableTaskName 'ReenableDisabledTasks' `
+                    -EnableScriptPath $script:EnableScriptPath `
+                    -PassThru
+            } | Should -Throw '*Active prior WinTaskCrossingGuard re-enable run detected*'
+
+            Test-Path -LiteralPath $script:IdentityPath | Should -BeFalse
+
+            Should -Invoke Disable-ScheduledTask -Times 0
+            Should -Invoke Invoke-WtcgRegisterScheduledTask -Times 0
+            Should -Invoke Invoke-WtcgSetScheduledTask -Times 0
+        }
+    }
+
+    It 'detects an overlapping manifest-backed active prior run in the re-enable folder' {
+        InModuleScope WinTaskCrossingGuard {
+            Mock Get-ScheduledTask -ParameterFilter {
+                $TaskName -eq 'ReenableDisabledTasks'
+            } {
+                return $null
+            }
+
+            $priorManifestPath = Join-Path $script:TempDir 'prior-manifest.json'
+            @{
+                Kind = 'WinTaskCrossingGuard.RollbackManifest'
+                ManifestVersion = 1
+                CreatedAt = [datetime]'2030-01-02T08:00:00'
+                WindowStart = [datetime]'2030-01-02T08:00:00'
+                WindowEnd = [datetime]'2030-01-02T17:00:00'
+                Tasks = @(
+                    @{
+                        TaskPath = '\Root\'
+                        TaskName = 'InWindow'
+                        FullName = '\Root\InWindow'
+                    }
+                )
+            } | ConvertTo-Json -Depth 10 | Set-Content -Path $priorManifestPath -Encoding utf8
+
+            Mock Get-ScheduledTask -ParameterFilter {
+                $TaskPath -eq '\WinTaskCrossingGuard\' -and -not $PSBoundParameters.ContainsKey('TaskName')
+            } {
+                [pscustomobject]@{
+                    TaskPath = '\WinTaskCrossingGuard\'
+                    TaskName = 'PriorRunRestore'
+                    State = 'Ready'
+                    Description = 'WinTaskCrossingGuard restore task'
+                    Actions = @(
+                        [pscustomobject]@{
+                            Arguments = ('-NoProfile -File restore.ps1 -ManifestPath "{0}"' -f $priorManifestPath)
+                        }
+                    )
+                }
+            }
+            Mock Get-ScheduledTaskInfo -ParameterFilter {
+                $TaskName -eq 'PriorRunRestore'
+            } {
+                [pscustomobject]@{
+                    NextRunTime = [datetime]'2030-01-02T18:00:00'
+                    LastRunTime = [datetime]'2030-01-01T01:00:00'
+                    LastTaskResult = 0
+                }
+            }
+
+            $run = Get-WtcgActivePriorReenableRun `
+                -WindowStart ([datetime]'2030-01-02T17:30:00') `
+                -WindowEnd ([datetime]'2030-01-02T19:00:00') `
+                -ReenableAt ([datetime]'2030-01-02T20:00:00') `
+                -ReenableTaskPath '\WinTaskCrossingGuard\' `
+                -ReenableTaskName 'ReenableDisabledTasks' `
+                -Now ([datetime]'2030-01-02T12:00:00')
+
+            $run | Should -Not -BeNullOrEmpty
+            $run.TaskName | Should -Be 'PriorRunRestore'
+            $run.ManifestPath | Should -Be $priorManifestPath
+            $run.OverlapReason | Should -Be 'active re-enable window overlaps requested disable-to-reenable interval'
+        }
+    }
+
+    It 'updates the existing re-enable scheduled task trigger when the existing task is stale' {
         InModuleScope WinTaskCrossingGuard {
             Mock Import-Module {}
             Mock Get-ScheduledTask -ParameterFilter {
@@ -252,6 +364,15 @@ Describe 'Disable-WtcgTasksInWindowAndScheduleReenable orchestration' {
                         Description = 'In window task'
                     }
                 )
+            }
+            Mock Get-ScheduledTaskInfo -ParameterFilter {
+                $TaskName -eq 'ReenableDisabledTasks'
+            } {
+                [pscustomobject]@{
+                    NextRunTime = [datetime]'2029-12-31T23:59:00'
+                    LastRunTime = [datetime]'2029-12-31T23:59:00'
+                    LastTaskResult = 0
+                }
             }
             Mock Get-ScheduledTaskInfo {
                 [pscustomobject]@{

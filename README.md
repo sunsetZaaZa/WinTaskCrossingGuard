@@ -252,6 +252,7 @@ It does all of this in one flow:
 
 ```text
 Find tasks inside a time window
+Detect active prior re-enable runs before making changes
 Capture original task state and discovery metadata in a rollback manifest
 Disable only tasks that were originally enabled
 Create or update a separate Windows Scheduled Task that restores only tasks disabled by this suite run
@@ -284,7 +285,9 @@ Use `-WhatIf` for a dry run:
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Example-ScheduledReenableWorkflow.ps1 -WhatIf
 ```
 
-If the re-enable scheduled task already exists, the function updates its one-time trigger to the new `-ReenableAt` value.
+If the re-enable scheduled task already exists but is stale, the function updates its one-time trigger to the new `-ReenableAt` value.
+
+If the configured re-enable task is still active, or another active WinTaskCrossingGuard re-enable task in the same folder overlaps the requested disable-to-reenable interval, orchestration stops before disabling any tasks. This protects a prior run's manifest and prevents an earlier scheduled restore from re-enabling tasks during a later maintenance window.
 
 
 ## Pester unit tests with 90% coverage gate
@@ -783,6 +786,8 @@ $env:ProgramData\WinTaskCrossingGuard\runtime.lock.json
 ```
 
 The mutex is the source of truth and is released automatically by Windows if the PowerShell process exits. The lock file is only a breadcrumb showing the owning process, host, operation, and related paths.
+
+The mutex prevents simultaneous mutations. Scheduled re-enable overlap detection covers the longer-lived hazard: a previous run can still be waiting for its one-time restore task after the process has exited. In that case, a later run is refused rather than replacing the prior restore trigger or manifest.
 
 Useful parameters:
 
