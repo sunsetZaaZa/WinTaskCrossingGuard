@@ -521,6 +521,54 @@ Scheduled re-enable workflows pass the generated JSONL path, `-RunId`, and `-Run
 
 
 
+
+## Telemetry export Stage 1: Elastic bulk payload builder
+
+Stage 1 adds configuration parsing and payload generation for Elastic/OpenSearch-style ingestion. It does **not** send HTTP requests yet. JSONL remains the local source of truth, and the new helpers only parse `.env` telemetry settings and convert JSONL events into Elasticsearch `_bulk` newline-delimited JSON.
+
+Core functions:
+
+```powershell
+Get-WtcgTelemetrySettings
+Import-WtcgJsonlEvent
+ConvertTo-WtcgElasticBulkPayload
+```
+
+Example `.env` settings:
+
+```dotenv
+WTCG_TELEMETRY_ENABLED=false
+WTCG_TELEMETRY_EVENTS=result,error,notification,disable,re-enable,scheduled-reenable
+WTCG_TELEMETRY_FAIL_ON_ERROR=false
+WTCG_TELEMETRY_TIMEOUT_SECONDS=15
+WTCG_TELEMETRY_BATCH_SIZE=100
+WTCG_TELEMETRY_RETRY_COUNT=2
+WTCG_TELEMETRY_RETRY_DELAY_SECONDS=2
+WTCG_TELEMETRY_SINKS=elasticsearch
+
+WTCG_ELASTICSEARCH_ENABLED=false
+WTCG_ELASTICSEARCH_URI=https://elastic.example.com:9200
+WTCG_ELASTICSEARCH_INDEX=wintaskcrossingguard-events
+WTCG_ELASTICSEARCH_DATA_STREAM=false
+WTCG_ELASTICSEARCH_AUTH_TYPE=None
+WTCG_ELASTICSEARCH_API_KEY=
+WTCG_ELASTICSEARCH_USERNAME=
+WTCG_ELASTICSEARCH_PASSWORD=
+WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=false
+```
+
+Build a bulk payload from a run JSONL file:
+
+```powershell
+$settings = Get-WtcgTelemetrySettings -EnvPath .\.env
+$payload = ConvertTo-WtcgElasticBulkPayload `
+  -JsonlPath .\runs\<runId>\steamablelogs\wintaskcrossingguard-events.jsonl `
+  -Index $settings.Elasticsearch.Index `
+  -DataStream:$settings.Elasticsearch.DataStream
+```
+
+When `-DataStream` is used, the bulk action metadata uses `create`. Otherwise it uses `index` by default. Generated payloads always end with a final newline and do not include configured API keys, passwords, or bearer tokens.
+
 ## Windows Event Log audit trail
 
 Important actions and failures are also emitted to the native Windows Event Log for enterprise audit tooling.
