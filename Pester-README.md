@@ -71,7 +71,7 @@ That module contains the functional behavior:
 - emergency restore wrapper smoke tests
 - XML disable log writing with run correlation fields
 - SIEM-friendly JSONL event writing under steamablelogs with run correlation fields
-- telemetry export settings import, Elastic bulk payload generation, generic HTTP sender behavior, and workflow export reports
+- telemetry export settings import, Elastic bulk payload generation, generic HTTP sender behavior, workflow export reports, and docs/examples for secure collector configuration
 - Windows Event Log audit event formatting for the WinTaskCrossingGuard source
 - default XML log path resolution
 
@@ -102,7 +102,7 @@ No real scheduled tasks are required for the unit tests.
 - strict split JSON mail event validation
 - XML error log writing for configuration failures
 - JSONL error, re-enable, and notification event writing
-- Telemetry export Stage 1 configuration/payload building and Stage 2 generic HTTP sender behavior
+- Telemetry export Stage 1 configuration/payload building, Stage 2 generic HTTP sender behavior, Stage 3 workflow integration, and Stage 4 docs/examples
 - Scheduled re-enable overlap detection and stale-task update behavior
 - Central run folder and run ID correlation across logs, manifests, and reports
 - Windows Event Log audit integration
