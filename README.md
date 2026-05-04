@@ -522,9 +522,9 @@ Scheduled re-enable workflows pass the generated JSONL path, `-RunId`, and `-Run
 
 
 
-## Telemetry export Stage 1: Elastic bulk payload builder
+## Telemetry export Stage 1 and 2: Elastic payloads plus generic HTTP sender
 
-Stage 1 adds configuration parsing and payload generation for Elastic/OpenSearch-style ingestion. It does **not** send HTTP requests yet. JSONL remains the local source of truth, and the new helpers only parse `.env` telemetry settings and convert JSONL events into Elasticsearch `_bulk` newline-delimited JSON.
+Stage 1 adds configuration parsing and payload generation for Elastic/OpenSearch-style ingestion. Stage 2 adds a generic HTTP sender with timeout, retry, custom headers, and optional insecure-TLS support. Workflow auto-export is still a later stage; JSONL remains the local source of truth.
 
 Core functions:
 
@@ -532,6 +532,10 @@ Core functions:
 Get-WtcgTelemetrySettings
 Import-WtcgJsonlEvent
 ConvertTo-WtcgElasticBulkPayload
+ConvertTo-WtcgHttpHeaderDictionary
+Invoke-WtcgTelemetryRestMethod
+Invoke-WtcgHttpRequestWithRetry
+Send-WtcgGenericHttpPayload
 ```
 
 Example `.env` settings:
@@ -555,6 +559,16 @@ WTCG_ELASTICSEARCH_API_KEY=
 WTCG_ELASTICSEARCH_USERNAME=
 WTCG_ELASTICSEARCH_PASSWORD=
 WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=false
+
+WTCG_GENERIC_HTTP_ENABLED=false
+WTCG_GENERIC_HTTP_URI=https://collector.example.com/events
+WTCG_GENERIC_HTTP_METHOD=Post
+WTCG_GENERIC_HTTP_FORMAT=ndjson
+WTCG_GENERIC_HTTP_CONTENT_TYPE=application/x-ndjson
+WTCG_GENERIC_HTTP_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
+WTCG_GENERIC_HTTP_AUTH_HEADER_NAME=Authorization
+WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE=
+WTCG_GENERIC_HTTP_ALLOW_INSECURE_TLS=false
 ```
 
 Build a bulk payload from a run JSONL file:
@@ -567,7 +581,25 @@ $payload = ConvertTo-WtcgElasticBulkPayload `
   -DataStream:$settings.Elasticsearch.DataStream
 ```
 
-When `-DataStream` is used, the bulk action metadata uses `create`. Otherwise it uses `index` by default. Generated payloads always end with a final newline and do not include configured API keys, passwords, or bearer tokens.
+Send a payload through the generic HTTP sender:
+
+```powershell
+$result = Send-WtcgGenericHttpPayload `
+  -Uri $settings.GenericHttp.Uri `
+  -Method $settings.GenericHttp.Method `
+  -Body $payload `
+  -ContentType $settings.GenericHttp.ContentType `
+  -Headers $settings.GenericHttp.Headers `
+  -AuthHeaderName $settings.GenericHttp.AuthHeaderName `
+  -AuthHeaderValue $settings.GenericHttp.AuthHeaderValue `
+  -TimeoutSeconds $settings.TimeoutSeconds `
+  -RetryCount $settings.RetryCount `
+  -RetryDelaySeconds $settings.RetryDelaySeconds `
+  -AllowInsecureTls:$settings.GenericHttp.AllowInsecureTls `
+  -FailOnError:$settings.FailOnError
+```
+
+When `-DataStream` is used, the bulk action metadata uses `create`. Otherwise it uses `index` by default. Generated payloads always end with a final newline and do not include configured API keys, passwords, bearer tokens, or custom auth header values. Sender results include header names but not header values.
 
 ## Windows Event Log audit trail
 
