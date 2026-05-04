@@ -349,7 +349,7 @@ WTCG_GENERIC_HTTP_ALLOW_INSECURE_TLS=true
     }
 }
 
-Describe 'Telemetry export Stage 3 workflow integration helpers' {
+Describe 'Telemetry export Stage 4 workflow integration helpers' {
     BeforeEach {
         $script:TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
         New-Item -ItemType Directory -Path $script:TempDir | Out-Null
@@ -383,11 +383,11 @@ WTCG_GENERIC_HTTP_AUTH_HEADER_NAME=Authorization
 WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE=Bearer secret-token
 '@ | Set-Content -Path $envPath -Encoding utf8
 
-            $context = New-WtcgRunContext -RunId 'wtcg-telemetry-stage3' -RunRootPath $script:TempDir
+            $context = New-WtcgRunContext -RunId 'wtcg-telemetry-stage4' -RunRootPath $script:TempDir
             $jsonlPath = Resolve-WtcgRunArtifactPath -RunContext $context -Kind 'JsonlLogs' -FileName 'wintaskcrossingguard-events.jsonl'
             @(
-                '{"schemaVersion":"1.0","action":"disable","runId":"wtcg-telemetry-stage3"}'
-                '{"schemaVersion":"1.0","action":"notification","runId":"wtcg-telemetry-stage3"}'
+                '{"schemaVersion":"1.0","action":"disable","runId":"wtcg-telemetry-stage4"}'
+                '{"schemaVersion":"1.0","action":"notification","runId":"wtcg-telemetry-stage4"}'
             ) | Set-Content -Path $jsonlPath -Encoding utf8
 
             Mock Send-WtcgGenericHttpPayload {
@@ -419,7 +419,7 @@ WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE=Bearer secret-token
             $report = $reportText | ConvertFrom-Json
             $report.Kind | Should -Be 'WinTaskCrossingGuard.TelemetryExportReport'
             $report.Operation | Should -Be 'PesterTelemetryExport'
-            $report.RunId | Should -Be 'wtcg-telemetry-stage3'
+            $report.RunId | Should -Be 'wtcg-telemetry-stage4'
             @($report.Results)[0].SinkName | Should -Be 'genericHttp'
             @($report.Results)[0].Sent | Should -BeTrue
             @($report.Results)[0].Uri | Should -Be 'https://collector.example.com/events'
@@ -456,11 +456,11 @@ WTCG_ELASTICSEARCH_API_KEY=super-secret-api-key
 WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=true
 '@ | Set-Content -Path $envPath -Encoding utf8
 
-            $context = New-WtcgRunContext -RunId 'wtcg-elastic-stage3' -RunRootPath $script:TempDir
+            $context = New-WtcgRunContext -RunId 'wtcg-elastic-stage4' -RunRootPath $script:TempDir
             $jsonlPath = Resolve-WtcgRunArtifactPath -RunContext $context -Kind 'JsonlLogs' -FileName 'wintaskcrossingguard-events.jsonl'
             @(
-                '{"schemaVersion":"1.0","action":"disable","runId":"wtcg-elastic-stage3"}'
-                '{"schemaVersion":"1.0","action":"notification","runId":"wtcg-elastic-stage3"}'
+                '{"schemaVersion":"1.0","action":"disable","runId":"wtcg-elastic-stage4"}'
+                '{"schemaVersion":"1.0","action":"notification","runId":"wtcg-elastic-stage4"}'
             ) | Set-Content -Path $jsonlPath -Encoding utf8
 
             Mock Send-WtcgGenericHttpPayload {
@@ -550,6 +550,227 @@ WTCG_GENERIC_HTTP_URI=https://collector.example.com/events
             $result.Status | Should -Be 'skipped-disabled'
             $result.ReportPath | Should -BeNullOrEmpty
             Should -Invoke Send-WtcgGenericHttpPayload -Times 0
+        }
+    }
+}
+
+Describe 'Telemetry export Stage 6 future adapters' {
+    BeforeEach {
+        $script:TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+        New-Item -ItemType Directory -Path $script:TempDir | Out-Null
+        InModuleScope WinTaskCrossingGuard -Parameters @{ TempDir = $script:TempDir } {
+            param($TempDir)
+            $script:TempDir = $TempDir
+        }
+    }
+
+    AfterEach {
+        Remove-Item -Path $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'imports Datadog Splunk Azure Monitor and Logstash settings from .env' {
+        InModuleScope WinTaskCrossingGuard {
+            $envPath = Join-Path $script:TempDir '.env'
+@'
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=datadog,splunkHec,azureMonitor,logstash
+WTCG_DATADOG_ENABLED=true
+WTCG_DATADOG_URI=https://http-intake.logs.datadoghq.com/api/v2/logs
+WTCG_DATADOG_API_KEY=dd-secret
+WTCG_DATADOG_SERVICE=wtcg
+WTCG_DATADOG_SOURCE=powershell
+WTCG_DATADOG_TAGS=env:test,tool:wtcg
+WTCG_SPLUNK_HEC_ENABLED=true
+WTCG_SPLUNK_HEC_URI=https://splunk.example.com:8088
+WTCG_SPLUNK_HEC_TOKEN=splunk-secret
+WTCG_SPLUNK_HEC_INDEX=main
+WTCG_SPLUNK_HEC_SOURCE=WinTaskCrossingGuard
+WTCG_SPLUNK_HEC_SOURCETYPE=_json
+WTCG_AZURE_MONITOR_ENABLED=true
+WTCG_AZURE_MONITOR_ENDPOINT=https://dce.example.ingest.monitor.azure.com
+WTCG_AZURE_MONITOR_DCR_IMMUTABLE_ID=dcr-abc
+WTCG_AZURE_MONITOR_STREAM_NAME=Custom-WinTaskCrossingGuard_CL
+WTCG_AZURE_MONITOR_BEARER_TOKEN=azure-secret
+WTCG_LOGSTASH_ENABLED=true
+WTCG_LOGSTASH_URI=https://logstash.example.com:8080/wtcg
+WTCG_LOGSTASH_FORMAT=ndjson
+WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
+'@ | Set-Content -Path $envPath -Encoding utf8
+
+            $settings = Get-WtcgTelemetrySettings -EnvPath $envPath
+
+            $settings.Sinks | Should -Contain 'datadog'
+            $settings.SplunkHec.Enabled | Should -BeTrue
+            $settings.Datadog.ApiKey | Should -Be 'dd-secret'
+            $settings.SplunkHec.Token | Should -Be 'splunk-secret'
+            $settings.AzureMonitor.BearerToken | Should -Be 'azure-secret'
+            $settings.Logstash.Headers | Should -Contain 'X-WTCG-Source=WinTaskCrossingGuard'
+        }
+    }
+
+    It 'builds Datadog log payloads without exposing the API key' {
+        InModuleScope WinTaskCrossingGuard {
+            $event = [pscustomobject]@{
+                action = 'disable'
+                status = 'succeeded'
+                operation = 'Pester'
+                runId = 'wtcg-dd'
+                hostName = 'host01'
+            }
+
+            $payload = $event | ConvertTo-WtcgDatadogLogPayload -Service 'wtcg' -Source 'powershell' -Tags 'env:test'
+            $logs = @($payload | ConvertFrom-Json)
+            $logs.Count | Should -Be 1
+            $logs[0].service | Should -Be 'wtcg'
+            $logs[0].ddsource | Should -Be 'powershell'
+            $logs[0].ddtags | Should -Be 'env:test'
+            $logs[0].hostname | Should -Be 'host01'
+            $logs[0].message.runId | Should -Be 'wtcg-dd'
+            $payload | Should -Not -Match 'dd-secret'
+        }
+    }
+
+    It 'builds Splunk HEC payloads and auth headers' {
+        InModuleScope WinTaskCrossingGuard {
+            $event = [pscustomobject]@{
+                timestampUtc = '2030-01-02T03:04:05Z'
+                action = 'error'
+                runId = 'wtcg-splunk'
+                hostName = 'host02'
+            }
+
+            $payload = $event | ConvertTo-WtcgSplunkHecPayload -Index 'main' -Source 'WinTaskCrossingGuard' -Sourcetype '_json'
+            $payload.EndsWith("`n") | Should -BeTrue
+            $hec = ($payload -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })[0] | ConvertFrom-Json
+            $hec.index | Should -Be 'main'
+            $hec.source | Should -Be 'WinTaskCrossingGuard'
+            $hec.sourcetype | Should -Be '_json'
+            $hec.host | Should -Be 'host02'
+            $hec.event.runId | Should -Be 'wtcg-splunk'
+
+            (Resolve-WtcgSplunkHecUri -Uri 'https://splunk.example.com:8088').EndsWith('/services/collector') | Should -BeTrue
+            $headers = Get-WtcgSplunkHecAuthHeader -Token 'splunk-token'
+            $headers['Authorization'] | Should -Be 'Splunk splunk-token'
+        }
+    }
+
+    It 'builds Azure Monitor Logs Ingestion payloads and URI' {
+        InModuleScope WinTaskCrossingGuard {
+            $event = [pscustomobject]@{
+                timestampUtc = '2030-01-02T03:04:05Z'
+                action = 'disable'
+                operation = 'PesterAzure'
+                status = 'succeeded'
+                runId = 'wtcg-azure'
+                hostName = 'host03'
+                details = [pscustomobject]@{ disabledTaskCount = 2 }
+            }
+
+            $payload = $event | ConvertTo-WtcgAzureMonitorPayload
+            $records = @($payload | ConvertFrom-Json)
+            $records.Count | Should -Be 1
+            $records[0].TimeGenerated | Should -Be '2030-01-02T03:04:05Z'
+            $records[0].Action | Should -Be 'disable'
+            $records[0].RunId | Should -Be 'wtcg-azure'
+            $records[0].RawEvent.runId | Should -Be 'wtcg-azure'
+
+            $uri = Resolve-WtcgAzureMonitorLogsIngestionUri `
+                -Endpoint 'https://dce.example.ingest.monitor.azure.com' `
+                -DataCollectionRuleId 'dcr-abc' `
+                -StreamName 'Custom-WinTaskCrossingGuard_CL'
+            $uri | Should -Be 'https://dce.example.ingest.monitor.azure.com/dataCollectionRules/dcr-abc/streams/Custom-WinTaskCrossingGuard_CL?api-version=2023-01-01'
+
+            $headers = Get-WtcgBearerAuthHeader -Token 'azure-token'
+            $headers['Authorization'] | Should -Be 'Bearer azure-token'
+        }
+    }
+
+    It 'exports to Datadog Splunk Azure Monitor and Logstash using sanitized report results' {
+        InModuleScope WinTaskCrossingGuard {
+            $envPath = Join-Path $script:TempDir '.env'
+@'
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=datadog,splunkHec,azureMonitor,logstash
+WTCG_TELEMETRY_RETRY_COUNT=0
+WTCG_TELEMETRY_RETRY_DELAY_SECONDS=0
+WTCG_DATADOG_ENABLED=true
+WTCG_DATADOG_URI=https://http-intake.logs.datadoghq.com/api/v2/logs?query-secret=hide-me
+WTCG_DATADOG_API_KEY=dd-secret
+WTCG_SPLUNK_HEC_ENABLED=true
+WTCG_SPLUNK_HEC_URI=https://splunk.example.com:8088
+WTCG_SPLUNK_HEC_TOKEN=splunk-secret
+WTCG_AZURE_MONITOR_ENABLED=true
+WTCG_AZURE_MONITOR_ENDPOINT=https://dce.example.ingest.monitor.azure.com
+WTCG_AZURE_MONITOR_DCR_IMMUTABLE_ID=dcr-abc
+WTCG_AZURE_MONITOR_STREAM_NAME=Custom-WinTaskCrossingGuard_CL
+WTCG_AZURE_MONITOR_BEARER_TOKEN=azure-secret
+WTCG_LOGSTASH_ENABLED=true
+WTCG_LOGSTASH_URI=https://logstash.example.com:8080/wtcg?secret=hide-me
+WTCG_LOGSTASH_FORMAT=ndjson
+WTCG_LOGSTASH_AUTH_HEADER_NAME=Authorization
+WTCG_LOGSTASH_AUTH_HEADER_VALUE=Bearer logstash-secret
+'@ | Set-Content -Path $envPath -Encoding utf8
+
+            $context = New-WtcgRunContext -RunId 'wtcg-stage6' -RunRootPath $script:TempDir
+            $jsonlPath = Resolve-WtcgRunArtifactPath -RunContext $context -Kind 'JsonlLogs' -FileName 'events.jsonl'
+            @(
+                '{"schemaVersion":"1.0","action":"disable","status":"succeeded","runId":"wtcg-stage6","hostName":"host01"}'
+                '{"schemaVersion":"1.0","action":"error","status":"failed","runId":"wtcg-stage6","hostName":"host01"}'
+            ) | Set-Content -Path $jsonlPath -Encoding utf8
+
+            Mock Send-WtcgGenericHttpPayload {
+                [pscustomobject]@{
+                    Sent = $true
+                    Uri = $Uri
+                    Method = $Method
+                    ContentType = $ContentType
+                    AttemptCount = 1
+                    StatusCode = 200
+                    Error = $null
+                    HeaderNames = if ($Headers -is [hashtable]) { @($Headers.Keys) } else { @($Headers) }
+                }
+            }
+
+            $result = Invoke-WtcgTelemetryExportForJsonl -JsonlPath $jsonlPath -RunContext $context -EnvPath $envPath
+
+            $result.Status | Should -Be 'succeeded'
+            @($result.Results).SinkName | Should -Contain 'datadog'
+            @($result.Results).SinkName | Should -Contain 'splunkHec'
+            @($result.Results).SinkName | Should -Contain 'azureMonitor'
+            @($result.Results).SinkName | Should -Contain 'logstash'
+
+            $reportText = Get-Content -LiteralPath $result.ReportPath -Raw
+            $reportText | Should -Not -Match 'dd-secret'
+            $reportText | Should -Not -Match 'splunk-secret'
+            $reportText | Should -Not -Match 'azure-secret'
+            $reportText | Should -Not -Match 'logstash-secret'
+            $reportText | Should -Not -Match 'query-secret'
+            $reportText | Should -Not -Match 'secret=hide-me'
+
+            Should -Invoke Send-WtcgGenericHttpPayload -Times 4
+            Should -Invoke Send-WtcgGenericHttpPayload -Times 1 -ParameterFilter {
+                $Uri -eq 'https://http-intake.logs.datadoghq.com/api/v2/logs?query-secret=hide-me' -and
+                ($Headers -is [hashtable]) -and
+                $Headers['DD-API-KEY'] -eq 'dd-secret' -and
+                $ContentType -eq 'application/json; charset=utf-8'
+            }
+            Should -Invoke Send-WtcgGenericHttpPayload -Times 1 -ParameterFilter {
+                $Uri -eq 'https://splunk.example.com:8088/services/collector' -and
+                ($Headers -is [hashtable]) -and
+                $Headers['Authorization'] -eq 'Splunk splunk-secret' -and
+                $Body.EndsWith("`n")
+            }
+            Should -Invoke Send-WtcgGenericHttpPayload -Times 1 -ParameterFilter {
+                $Uri -eq 'https://dce.example.ingest.monitor.azure.com/dataCollectionRules/dcr-abc/streams/Custom-WinTaskCrossingGuard_CL?api-version=2023-01-01' -and
+                ($Headers -is [hashtable]) -and
+                $Headers['Authorization'] -eq 'Bearer azure-secret'
+            }
+            Should -Invoke Send-WtcgGenericHttpPayload -Times 1 -ParameterFilter {
+                $Uri -eq 'https://logstash.example.com:8080/wtcg?secret=hide-me' -and
+                $AuthHeaderName -eq 'Authorization' -and
+                $AuthHeaderValue -eq 'Bearer logstash-secret' -and
+                $ContentType -eq 'application/x-ndjson'
+            }
         }
     }
 }

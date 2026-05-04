@@ -3672,6 +3672,36 @@ function Get-WtcgTelemetrySettings {
 
     $genericHttpHeaders = ConvertTo-WtcgStringList -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_HEADERS' -Default '') -Default @()
 
+    $datadogEnabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_DATADOG_ENABLED' -Default $false) -Default $false
+    $datadogAllowInsecureTls = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_DATADOG_ALLOW_INSECURE_TLS' -Default $false) -Default $false
+    $datadogUri = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_DATADOG_URI' -Default 'https://http-intake.logs.datadoghq.com/api/v2/logs')
+    if ([string]::IsNullOrWhiteSpace($datadogUri)) { $datadogUri = 'https://http-intake.logs.datadoghq.com/api/v2/logs' }
+
+    $splunkEnabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_SPLUNK_HEC_ENABLED' -Default $false) -Default $false
+    $splunkAllowInsecureTls = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_SPLUNK_HEC_ALLOW_INSECURE_TLS' -Default $false) -Default $false
+    $splunkSourcetype = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_SPLUNK_HEC_SOURCETYPE' -Default '_json')
+    if ([string]::IsNullOrWhiteSpace($splunkSourcetype)) { $splunkSourcetype = '_json' }
+
+    $azureMonitorEnabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_AZURE_MONITOR_ENABLED' -Default $false) -Default $false
+    $azureMonitorAllowInsecureTls = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_AZURE_MONITOR_ALLOW_INSECURE_TLS' -Default $false) -Default $false
+    $azureMonitorApiVersion = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_AZURE_MONITOR_API_VERSION' -Default '2023-01-01')
+    if ([string]::IsNullOrWhiteSpace($azureMonitorApiVersion)) { $azureMonitorApiVersion = '2023-01-01' }
+
+    $logstashEnabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_LOGSTASH_ENABLED' -Default $false) -Default $false
+    $logstashAllowInsecureTls = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_LOGSTASH_ALLOW_INSECURE_TLS' -Default $false) -Default $false
+    $logstashFormat = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_LOGSTASH_FORMAT' -Default 'ndjson')
+    if ([string]::IsNullOrWhiteSpace($logstashFormat)) { $logstashFormat = 'ndjson' }
+    $allowedLogstashFormats = @('ndjson', 'jsonArray', 'raw')
+    $matchedLogstashFormat = @($allowedLogstashFormats | Where-Object { $_ -ieq $logstashFormat.Trim() } | Select-Object -First 1)
+    if ($matchedLogstashFormat.Count -eq 0) {
+        throw "Invalid WTCG_LOGSTASH_FORMAT value '$logstashFormat'. Expected one of: $($allowedLogstashFormats -join ', ')."
+    }
+    $logstashFormat = [string]$matchedLogstashFormat[0]
+    $logstashDefaultContentType = if ($logstashFormat -ieq 'ndjson') { 'application/x-ndjson' } else { 'application/json; charset=utf-8' }
+    $logstashContentType = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_LOGSTASH_CONTENT_TYPE' -Default $logstashDefaultContentType)
+    if ([string]::IsNullOrWhiteSpace($logstashContentType)) { $logstashContentType = $logstashDefaultContentType }
+    $logstashHeaders = ConvertTo-WtcgStringList -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_LOGSTASH_HEADERS' -Default '') -Default @()
+
     [pscustomobject]@{
         Enabled           = $enabled
         EnvPath           = $EnvPath
@@ -3703,6 +3733,44 @@ function Get-WtcgTelemetrySettings {
             AuthHeaderName   = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_AUTH_HEADER_NAME' -Default '')
             AuthHeaderValue  = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE' -Default '')
             AllowInsecureTls = $genericHttpAllowInsecureTls
+        }
+        Datadog           = [pscustomobject]@{
+            Enabled          = $datadogEnabled
+            Uri              = $datadogUri
+            ApiKey           = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_DATADOG_API_KEY' -Default '')
+            Service          = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_DATADOG_SERVICE' -Default 'wintaskcrossingguard')
+            Source           = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_DATADOG_SOURCE' -Default 'powershell')
+            Tags             = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_DATADOG_TAGS' -Default 'tool:wintaskcrossingguard')
+            AllowInsecureTls = $datadogAllowInsecureTls
+        }
+        SplunkHec         = [pscustomobject]@{
+            Enabled          = $splunkEnabled
+            Uri              = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_SPLUNK_HEC_URI' -Default '')
+            Token            = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_SPLUNK_HEC_TOKEN' -Default '')
+            Index            = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_SPLUNK_HEC_INDEX' -Default '')
+            Source           = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_SPLUNK_HEC_SOURCE' -Default 'WinTaskCrossingGuard')
+            Sourcetype       = $splunkSourcetype
+            AllowInsecureTls = $splunkAllowInsecureTls
+        }
+        AzureMonitor     = [pscustomobject]@{
+            Enabled                  = $azureMonitorEnabled
+            Uri                      = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_AZURE_MONITOR_URI' -Default '')
+            Endpoint                 = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_AZURE_MONITOR_ENDPOINT' -Default '')
+            DataCollectionRuleId     = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_AZURE_MONITOR_DCR_IMMUTABLE_ID' -Default '')
+            StreamName               = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_AZURE_MONITOR_STREAM_NAME' -Default '')
+            ApiVersion               = $azureMonitorApiVersion
+            BearerToken              = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_AZURE_MONITOR_BEARER_TOKEN' -Default '')
+            AllowInsecureTls         = $azureMonitorAllowInsecureTls
+        }
+        Logstash         = [pscustomobject]@{
+            Enabled          = $logstashEnabled
+            Uri              = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_LOGSTASH_URI' -Default '')
+            Format           = $logstashFormat
+            ContentType      = $logstashContentType
+            Headers          = @($logstashHeaders)
+            AuthHeaderName   = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_LOGSTASH_AUTH_HEADER_NAME' -Default '')
+            AuthHeaderValue  = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_LOGSTASH_AUTH_HEADER_VALUE' -Default '')
+            AllowInsecureTls = $logstashAllowInsecureTls
         }
     }
 }
@@ -4287,6 +4355,325 @@ function Get-WtcgElasticAuthHeader {
     }
 }
 
+function ConvertTo-WtcgDatadogLogPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [AllowNull()]
+        [object[]] $Event,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [string[]] $AllowedEvents,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Service = 'wintaskcrossingguard',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Source = 'powershell',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Tags = 'tool:wintaskcrossingguard'
+    )
+
+    begin {
+        $events = [System.Collections.Generic.List[object]]::new()
+    }
+
+    process {
+        foreach ($entry in @($Event)) {
+            if ($null -ne $entry -and (Test-WtcgTelemetryEventAllowed -Event $entry -AllowedEvents $AllowedEvents)) {
+                $events.Add($entry)
+            }
+        }
+    }
+
+    end {
+        if (-not [string]::IsNullOrWhiteSpace($JsonlPath)) {
+            foreach ($entry in Import-WtcgJsonlEvent -Path $JsonlPath | Select-WtcgTelemetryEvent -AllowedEvents $AllowedEvents) {
+                if ($null -ne $entry) { $events.Add($entry) }
+            }
+        }
+
+        $logs = foreach ($entry in $events) {
+            $hostName = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'hostName'
+            $runId = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'runId'
+            $action = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'action'
+            $status = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'status'
+            $operation = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'operation'
+
+            $log = [ordered]@{
+                ddsource  = $Source
+                service   = $Service
+                ddtags    = $Tags
+                message   = $entry
+                source    = 'WinTaskCrossingGuard'
+                action    = $action
+                status    = $status
+                operation = $operation
+                runId     = $runId
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace([string]$hostName)) { $log.hostname = [string]$hostName }
+            [pscustomobject]$log
+        }
+
+        return ($logs | ConvertTo-Json -Depth 30 -Compress -AsArray)
+    }
+}
+
+function Get-WtcgDatadogAuthHeader {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ApiKey
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ApiKey)) { return @{} }
+    @{ 'DD-API-KEY' = $ApiKey }
+}
+
+function Resolve-WtcgSplunkHecUri {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Uri
+    )
+
+    try {
+        $builder = [System.UriBuilder]::new($Uri.Trim())
+        $builder.Query = $null
+        $path = $builder.Path.TrimEnd('/')
+        if ($path -notmatch '/services/collector(?:/event)?$') {
+            $path = "$path/services/collector"
+        }
+        $builder.Path = $path
+        $builder.Uri.AbsoluteUri
+    }
+    catch {
+        $trimmed = $Uri.Trim().TrimEnd('/')
+        if ($trimmed -match '/services/collector(?:/event)?$') { return $trimmed }
+        "$trimmed/services/collector"
+    }
+}
+
+function Get-WtcgSplunkHecAuthHeader {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Token
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Token)) { return @{} }
+    @{ Authorization = "Splunk $Token" }
+}
+
+function ConvertTo-WtcgUnixEpochSeconds {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Value
+    )
+
+    $dateTime = ConvertTo-WtcgNullableDateTime -Value $Value
+    if ($null -eq $dateTime) { return $null }
+    $dateTimeOffset = [datetimeoffset]($dateTime.ToUniversalTime())
+    $dateTimeOffset.ToUnixTimeSeconds()
+}
+
+function ConvertTo-WtcgSplunkHecPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [AllowNull()]
+        [object[]] $Event,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [string[]] $AllowedEvents,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Index,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Source = 'WinTaskCrossingGuard',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Sourcetype = '_json'
+    )
+
+    begin { $events = [System.Collections.Generic.List[object]]::new() }
+    process {
+        foreach ($entry in @($Event)) {
+            if ($null -ne $entry -and (Test-WtcgTelemetryEventAllowed -Event $entry -AllowedEvents $AllowedEvents)) { $events.Add($entry) }
+        }
+    }
+    end {
+        if (-not [string]::IsNullOrWhiteSpace($JsonlPath)) {
+            foreach ($entry in Import-WtcgJsonlEvent -Path $JsonlPath | Select-WtcgTelemetryEvent -AllowedEvents $AllowedEvents) {
+                if ($null -ne $entry) { $events.Add($entry) }
+            }
+        }
+
+        if ($events.Count -eq 0) { return '' }
+
+        $lines = foreach ($entry in $events) {
+            $timestamp = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'timestampUtc'
+            $hostName = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'hostName'
+            $hecEvent = [ordered]@{
+                source     = $Source
+                sourcetype = $Sourcetype
+                event      = $entry
+            }
+            if (-not [string]::IsNullOrWhiteSpace($Index)) { $hecEvent.index = $Index }
+            if (-not [string]::IsNullOrWhiteSpace([string]$hostName)) { $hecEvent.host = [string]$hostName }
+            $epoch = ConvertTo-WtcgUnixEpochSeconds -Value $timestamp
+            if ($null -ne $epoch) { $hecEvent.time = $epoch }
+            $hecEvent | ConvertTo-Json -Depth 30 -Compress
+        }
+
+        return (($lines -join "`n") + "`n")
+    }
+}
+
+function Resolve-WtcgAzureMonitorLogsIngestionUri {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Uri,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Endpoint,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $DataCollectionRuleId,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $StreamName,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $ApiVersion = '2023-01-01'
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Uri)) {
+        try {
+            $builder = [System.UriBuilder]::new($Uri.Trim())
+            if ([string]::IsNullOrWhiteSpace($builder.Query)) { $builder.Query = "api-version=$ApiVersion" }
+            return $builder.Uri.AbsoluteUri
+        }
+        catch { return $Uri }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Endpoint) -or [string]::IsNullOrWhiteSpace($DataCollectionRuleId) -or [string]::IsNullOrWhiteSpace($StreamName)) {
+        return $null
+    }
+
+    $base = $Endpoint.Trim().TrimEnd('/')
+    "$base/dataCollectionRules/$DataCollectionRuleId/streams/$StreamName?api-version=$ApiVersion"
+}
+
+function Get-WtcgBearerAuthHeader {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Token
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Token)) { return @{} }
+    @{ Authorization = "Bearer $Token" }
+}
+
+function ConvertTo-WtcgAzureMonitorPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [AllowNull()]
+        [object[]] $Event,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [string[]] $AllowedEvents
+    )
+
+    begin { $events = [System.Collections.Generic.List[object]]::new() }
+    process {
+        foreach ($entry in @($Event)) {
+            if ($null -ne $entry -and (Test-WtcgTelemetryEventAllowed -Event $entry -AllowedEvents $AllowedEvents)) { $events.Add($entry) }
+        }
+    }
+    end {
+        if (-not [string]::IsNullOrWhiteSpace($JsonlPath)) {
+            foreach ($entry in Import-WtcgJsonlEvent -Path $JsonlPath | Select-WtcgTelemetryEvent -AllowedEvents $AllowedEvents) {
+                if ($null -ne $entry) { $events.Add($entry) }
+            }
+        }
+
+        $records = foreach ($entry in $events) {
+            $timestamp = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'timestampUtc'
+            [pscustomobject][ordered]@{
+                TimeGenerated = if (-not [string]::IsNullOrWhiteSpace([string]$timestamp)) { [string]$timestamp } else { (Get-Date).ToUniversalTime().ToString('o') }
+                Source        = 'WinTaskCrossingGuard'
+                Action        = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'action'
+                Operation     = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'operation'
+                Status        = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'status'
+                RunId         = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'runId'
+                RunFolderPath = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'runFolderPath'
+                HostName      = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'hostName'
+                UserName      = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'userName'
+                ProcessId     = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'processId'
+                Details       = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'details'
+                RawEvent      = $entry
+            }
+        }
+
+        return ($records | ConvertTo-Json -Depth 30 -Compress -AsArray)
+    }
+}
+
 function ConvertTo-WtcgTelemetryExportResultSummary {
     [CmdletBinding()]
     param(
@@ -4506,6 +4893,113 @@ function Invoke-WtcgTelemetryExportForJsonl {
                 $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'elasticsearch' -Result $sendResult -Uri $elasticUri -EventCount $events.Count))
             }
         }
+
+        if (($sinkNames -contains 'datadog' -or $sinkNames -contains 'datadoglogs') -and [bool]$settings.Datadog.Enabled) {
+            if ([string]::IsNullOrWhiteSpace([string]$settings.Datadog.Uri)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'datadog' -EventCount $events.Count -ErrorMessage 'WTCG_DATADOG_URI is not configured.'))
+            }
+            elseif ([string]::IsNullOrWhiteSpace([string]$settings.Datadog.ApiKey)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'datadog' -EventCount $events.Count -ErrorMessage 'WTCG_DATADOG_API_KEY is not configured.'))
+            }
+            else {
+                $headers = Get-WtcgDatadogAuthHeader -ApiKey $settings.Datadog.ApiKey
+                $body = $events | ConvertTo-WtcgDatadogLogPayload -Service $settings.Datadog.Service -Source $settings.Datadog.Source -Tags $settings.Datadog.Tags -AllowedEvents $settings.Events
+                $sendResult = Send-WtcgGenericHttpPayload `
+                    -Uri $settings.Datadog.Uri `
+                    -Method 'Post' `
+                    -Body $body `
+                    -ContentType 'application/json; charset=utf-8' `
+                    -Headers $headers `
+                    -TimeoutSeconds $settings.TimeoutSeconds `
+                    -RetryCount $settings.RetryCount `
+                    -RetryDelaySeconds $settings.RetryDelaySeconds `
+                    -AllowInsecureTls:$settings.Datadog.AllowInsecureTls `
+                    -FailOnError:$settings.FailOnError
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'datadog' -Result $sendResult -Uri $settings.Datadog.Uri -EventCount $events.Count))
+            }
+        }
+
+        if (($sinkNames -contains 'splunk' -or $sinkNames -contains 'splunkhec' -or $sinkNames -contains 'hec') -and [bool]$settings.SplunkHec.Enabled) {
+            if ([string]::IsNullOrWhiteSpace([string]$settings.SplunkHec.Uri)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'splunkHec' -EventCount $events.Count -ErrorMessage 'WTCG_SPLUNK_HEC_URI is not configured.'))
+            }
+            elseif ([string]::IsNullOrWhiteSpace([string]$settings.SplunkHec.Token)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'splunkHec' -EventCount $events.Count -ErrorMessage 'WTCG_SPLUNK_HEC_TOKEN is not configured.'))
+            }
+            else {
+                $splunkUri = Resolve-WtcgSplunkHecUri -Uri $settings.SplunkHec.Uri
+                $headers = Get-WtcgSplunkHecAuthHeader -Token $settings.SplunkHec.Token
+                $body = $events | ConvertTo-WtcgSplunkHecPayload -Index $settings.SplunkHec.Index -Source $settings.SplunkHec.Source -Sourcetype $settings.SplunkHec.Sourcetype -AllowedEvents $settings.Events
+                $sendResult = Send-WtcgGenericHttpPayload `
+                    -Uri $splunkUri `
+                    -Method 'Post' `
+                    -Body $body `
+                    -ContentType 'application/json; charset=utf-8' `
+                    -Headers $headers `
+                    -TimeoutSeconds $settings.TimeoutSeconds `
+                    -RetryCount $settings.RetryCount `
+                    -RetryDelaySeconds $settings.RetryDelaySeconds `
+                    -AllowInsecureTls:$settings.SplunkHec.AllowInsecureTls `
+                    -FailOnError:$settings.FailOnError
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'splunkHec' -Result $sendResult -Uri $splunkUri -EventCount $events.Count))
+            }
+        }
+
+        if (($sinkNames -contains 'azuremonitor' -or $sinkNames -contains 'azure' -or $sinkNames -contains 'sentinel') -and [bool]$settings.AzureMonitor.Enabled) {
+            $azureUri = Resolve-WtcgAzureMonitorLogsIngestionUri `
+                -Uri $settings.AzureMonitor.Uri `
+                -Endpoint $settings.AzureMonitor.Endpoint `
+                -DataCollectionRuleId $settings.AzureMonitor.DataCollectionRuleId `
+                -StreamName $settings.AzureMonitor.StreamName `
+                -ApiVersion $settings.AzureMonitor.ApiVersion
+
+            if ([string]::IsNullOrWhiteSpace([string]$azureUri)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'azureMonitor' -EventCount $events.Count -ErrorMessage 'Azure Monitor URI is not configured. Set WTCG_AZURE_MONITOR_URI or endpoint/DCR/stream settings.'))
+            }
+            elseif ([string]::IsNullOrWhiteSpace([string]$settings.AzureMonitor.BearerToken)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'azureMonitor' -EventCount $events.Count -ErrorMessage 'WTCG_AZURE_MONITOR_BEARER_TOKEN is not configured.'))
+            }
+            else {
+                $headers = Get-WtcgBearerAuthHeader -Token $settings.AzureMonitor.BearerToken
+                $body = $events | ConvertTo-WtcgAzureMonitorPayload -AllowedEvents $settings.Events
+                $sendResult = Send-WtcgGenericHttpPayload `
+                    -Uri $azureUri `
+                    -Method 'Post' `
+                    -Body $body `
+                    -ContentType 'application/json; charset=utf-8' `
+                    -Headers $headers `
+                    -TimeoutSeconds $settings.TimeoutSeconds `
+                    -RetryCount $settings.RetryCount `
+                    -RetryDelaySeconds $settings.RetryDelaySeconds `
+                    -AllowInsecureTls:$settings.AzureMonitor.AllowInsecureTls `
+                    -FailOnError:$settings.FailOnError
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'azureMonitor' -Result $sendResult -Uri $azureUri -EventCount $events.Count))
+            }
+        }
+
+        if (($sinkNames -contains 'logstash') -and [bool]$settings.Logstash.Enabled) {
+            if ([string]::IsNullOrWhiteSpace([string]$settings.Logstash.Uri)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'logstash' -EventCount $events.Count -ErrorMessage 'WTCG_LOGSTASH_URI is not configured.'))
+            }
+            else {
+                $body = ConvertTo-WtcgGenericHttpTelemetryPayload -Format $settings.Logstash.Format -JsonlPath $JsonlPath -AllowedEvents $settings.Events
+                $sendResult = Send-WtcgGenericHttpPayload `
+                    -Uri $settings.Logstash.Uri `
+                    -Method 'Post' `
+                    -Body $body `
+                    -ContentType $settings.Logstash.ContentType `
+                    -Headers $settings.Logstash.Headers `
+                    -AuthHeaderName $settings.Logstash.AuthHeaderName `
+                    -AuthHeaderValue $settings.Logstash.AuthHeaderValue `
+                    -TimeoutSeconds $settings.TimeoutSeconds `
+                    -RetryCount $settings.RetryCount `
+                    -RetryDelaySeconds $settings.RetryDelaySeconds `
+                    -AllowInsecureTls:$settings.Logstash.AllowInsecureTls `
+                    -FailOnError:$settings.FailOnError
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'logstash' -Result $sendResult -Uri $settings.Logstash.Uri -EventCount $events.Count))
+            }
+        }
+
 
         $status = if ($results.Count -eq 0) {
             'skipped-no-enabled-sinks'

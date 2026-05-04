@@ -1,0 +1,19 @@
+{
+  "table": "WinTaskCrossingGuard_CL",
+  "stream": "Custom-WinTaskCrossingGuard_CL",
+  "fields": [
+    "TimeGenerated",
+    "Source",
+    "Action",
+    "Operation",
+    "Status",
+    "RunId",
+    "RunFolderPath",
+    "HostName",
+    "UserName",
+    "ProcessId",
+    "Details",
+    "RawEvent"
+  ],
+  "note": "Use these fields as a starting point for your Data Collection Rule transform and custom table schema. Match names and types to your tenant policy."
+}

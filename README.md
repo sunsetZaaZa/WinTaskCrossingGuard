@@ -545,6 +545,10 @@ Invoke-WtcgHttpRequestWithRetry
 Send-WtcgGenericHttpPayload
 Invoke-WtcgTelemetryExportForJsonl
 Save-WtcgTelemetryExportReport
+ConvertTo-WtcgDatadogLogPayload
+ConvertTo-WtcgSplunkHecPayload
+ConvertTo-WtcgAzureMonitorPayload
+Resolve-WtcgAzureMonitorLogsIngestionUri
 ```
 
 ### Secure `.env` examples
@@ -681,6 +685,79 @@ Invoke-RestMethod `
 
 For OpenSearch, the same template shape is a useful starting point, but validate it against your OpenSearch version and index-management policy before production use.
 
+### Stage 5 adapters: Datadog, Splunk HEC, Azure Monitor/Sentinel, and Logstash
+
+Stage 5 adds vendor-specific payload shaping and sink wiring on top of the generic HTTP sender. These adapters still use the local JSONL stream as source of truth and still write sanitized export results to the run folder.
+
+Datadog Logs HTTP intake:
+
+```dotenv
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=datadog
+WTCG_DATADOG_ENABLED=true
+WTCG_DATADOG_URI=https://http-intake.logs.datadoghq.com/api/v2/logs
+WTCG_DATADOG_API_KEY=<secret>
+WTCG_DATADOG_SERVICE=wintaskcrossingguard
+WTCG_DATADOG_SOURCE=powershell
+WTCG_DATADOG_TAGS=tool:wintaskcrossingguard,env:prod
+```
+
+The Datadog adapter sends a JSON array of log objects and authenticates with the `DD-API-KEY` header. Reports include the header name, but not the API key value.
+
+Splunk HTTP Event Collector:
+
+```dotenv
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=splunkHec
+WTCG_SPLUNK_HEC_ENABLED=true
+WTCG_SPLUNK_HEC_URI=https://splunk.example.com:8088/services/collector
+WTCG_SPLUNK_HEC_TOKEN=<secret>
+WTCG_SPLUNK_HEC_INDEX=main
+WTCG_SPLUNK_HEC_SOURCE=WinTaskCrossingGuard
+WTCG_SPLUNK_HEC_SOURCETYPE=_json
+```
+
+The Splunk adapter emits one HEC envelope per event with `event` containing the original JSONL event. It authenticates with `Authorization: Splunk <token>` and strips query strings from report URIs.
+
+Azure Monitor Logs Ingestion API / Microsoft Sentinel:
+
+```dotenv
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=azureMonitor
+WTCG_AZURE_MONITOR_ENABLED=true
+WTCG_AZURE_MONITOR_ENDPOINT=https://dce-example.eastus-1.ingest.monitor.azure.com
+WTCG_AZURE_MONITOR_DCR_IMMUTABLE_ID=dcr-00000000000000000000000000000000
+WTCG_AZURE_MONITOR_STREAM_NAME=Custom-WinTaskCrossingGuard_CL
+WTCG_AZURE_MONITOR_API_VERSION=2023-01-01
+WTCG_AZURE_MONITOR_BEARER_TOKEN=<secret>
+```
+
+The Azure adapter posts a JSON array to the Logs Ingestion API. It assumes a bearer token has already been acquired by the operator, CI/CD system, managed identity wrapper, or secret-management layer. The custom table/Data Collection Rule must match the fields emitted by `ConvertTo-WtcgAzureMonitorPayload`.
+
+Logstash HTTP input:
+
+```dotenv
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=logstash
+WTCG_LOGSTASH_ENABLED=true
+WTCG_LOGSTASH_URI=https://logstash.example.com:8080/wintaskcrossingguard
+WTCG_LOGSTASH_FORMAT=ndjson
+WTCG_LOGSTASH_CONTENT_TYPE=application/x-ndjson
+WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
+```
+
+For Logstash, use `ndjson` with an HTTP input configured with a `json_lines` codec, or switch to `jsonArray` with a JSON-capable pipeline. The Logstash adapter is intentionally thin because Logstash deployments vary widely.
+
+Example multi-sink setup:
+
+```dotenv
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=elasticsearch,datadog,splunkHec,azureMonitor,logstash
+```
+
+Keep this kind of fan-out for high-value workflows only. Every enabled sink receives the same filtered JSONL event set, so retry and timeout settings apply to each enabled destination.
+
+
 ### Failure-mode notes
 
 Default behavior is best effort:
@@ -727,6 +804,10 @@ Elasticsearch Bulk API: https://www.elastic.co/docs/api/doc/elasticsearch/operat
 Elasticsearch API key authentication: https://www.elastic.co/docs/api/doc/elasticsearch/authentication
 OpenSearch Bulk API: https://docs.opensearch.org/latest/api-reference/document-apis/bulk/
 OpenSearch index templates: https://docs.opensearch.org/latest/im-plugin/index-templates/
+Datadog Logs API: https://docs.datadoghq.com/api/latest/logs/
+Splunk HEC event format: https://docs.splunk.com/Documentation/Splunk/latest/Data/FormateventsforHTTPEventCollector
+Azure Monitor Logs Ingestion API: https://learn.microsoft.com/azure/azure-monitor/logs/logs-ingestion-api-overview
+Logstash HTTP input: https://www.elastic.co/guide/en/logstash/current/plugins-inputs-http.html
 ```
 
 ## Windows Event Log audit trail
