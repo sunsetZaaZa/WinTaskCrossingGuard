@@ -370,6 +370,11 @@ $reportFile = Save-WtcgRunReport `
     })
 Write-Host "Run report written to: $($reportFile.FullName)"
 
+$telemetryExportResult = Invoke-WtcgTelemetryExportForJsonl `
+    -JsonlPath $effectiveJsonlLogPath `
+    -RunContext $runContext `
+    -Operation 'DisableTasksInWindow'
+
 Clear-WtcgOldLogs -EnvPath (Join-Path $PSScriptRoot '.env') -LogsPath (Join-Path $PSScriptRoot 'logs') -WhatIf:$WhatIfPreference
 Clear-WtcgOldLogs -EnvPath (Join-Path $PSScriptRoot '.env') -LogsPath (Join-Path $PSScriptRoot 'steamablelogs') -Filter '*.jsonl' -WhatIf:$WhatIfPreference
 
@@ -478,6 +483,17 @@ catch {
             -Credential $ErrorEmailCredential `
             -AttachXmlLog `
             -FailOnEmailError:$FailOnErrorEmail
+    }
+
+    try {
+        Invoke-WtcgTelemetryExportForJsonl `
+            -JsonlPath $errorJsonlLogFile.FullName `
+            -RunContext $runContext `
+            -Operation 'DisableTasksInWindow' |
+            Out-Null
+    }
+    catch {
+        Write-Verbose "Failed to export WinTaskCrossingGuard telemetry events: $($_.Exception.Message)"
     }
 
     throw

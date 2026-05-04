@@ -348,3 +348,208 @@ WTCG_GENERIC_HTTP_ALLOW_INSECURE_TLS=true
         }
     }
 }
+
+Describe 'Telemetry export Stage 3 workflow integration helpers' {
+    BeforeEach {
+        $script:TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+        New-Item -ItemType Directory -Path $script:TempDir | Out-Null
+        InModuleScope WinTaskCrossingGuard -Parameters @{ TempDir = $script:TempDir } {
+            param($TempDir)
+            $script:TempDir = $TempDir
+        }
+    }
+
+    AfterEach {
+        Remove-Item -Path $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'exports JSONL events to the generic HTTP sink and writes a run report without secrets' {
+        InModuleScope WinTaskCrossingGuard {
+            $envPath = Join-Path $script:TempDir '.env'
+@'
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_EVENTS=disable
+WTCG_TELEMETRY_SINKS=genericHttp
+WTCG_TELEMETRY_TIMEOUT_SECONDS=21
+WTCG_TELEMETRY_RETRY_COUNT=0
+WTCG_TELEMETRY_RETRY_DELAY_SECONDS=0
+WTCG_GENERIC_HTTP_ENABLED=true
+WTCG_GENERIC_HTTP_URI=https://collector.example.com/events?token=secret-query-token
+WTCG_GENERIC_HTTP_METHOD=Post
+WTCG_GENERIC_HTTP_FORMAT=jsonArray
+WTCG_GENERIC_HTTP_CONTENT_TYPE=application/json
+WTCG_GENERIC_HTTP_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
+WTCG_GENERIC_HTTP_AUTH_HEADER_NAME=Authorization
+WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE=Bearer secret-token
+'@ | Set-Content -Path $envPath -Encoding utf8
+
+            $context = New-WtcgRunContext -RunId 'wtcg-telemetry-stage3' -RunRootPath $script:TempDir
+            $jsonlPath = Resolve-WtcgRunArtifactPath -RunContext $context -Kind 'JsonlLogs' -FileName 'wintaskcrossingguard-events.jsonl'
+            @(
+                '{"schemaVersion":"1.0","action":"disable","runId":"wtcg-telemetry-stage3"}'
+                '{"schemaVersion":"1.0","action":"notification","runId":"wtcg-telemetry-stage3"}'
+            ) | Set-Content -Path $jsonlPath -Encoding utf8
+
+            Mock Send-WtcgGenericHttpPayload {
+                [pscustomobject]@{
+                    Sent = $true
+                    Uri = $Uri
+                    Method = $Method
+                    ContentType = $ContentType
+                    AttemptCount = 1
+                    StatusCode = $null
+                    Error = $null
+                    HeaderNames = @('Authorization', 'X-WTCG-Source')
+                }
+            }
+
+            $result = Invoke-WtcgTelemetryExportForJsonl `
+                -JsonlPath $jsonlPath `
+                -RunContext $context `
+                -EnvPath $envPath `
+                -Operation 'PesterTelemetryExport'
+
+            $result.Enabled | Should -BeTrue
+            $result.Status | Should -Be 'succeeded'
+            Test-Path -LiteralPath $result.ReportPath | Should -BeTrue
+
+            $reportText = Get-Content -LiteralPath $result.ReportPath -Raw
+            $reportText | Should -Not -Match 'secret-token'
+            $reportText | Should -Not -Match 'secret-query-token'
+            $report = $reportText | ConvertFrom-Json
+            $report.Kind | Should -Be 'WinTaskCrossingGuard.TelemetryExportReport'
+            $report.Operation | Should -Be 'PesterTelemetryExport'
+            $report.RunId | Should -Be 'wtcg-telemetry-stage3'
+            @($report.Results)[0].SinkName | Should -Be 'genericHttp'
+            @($report.Results)[0].Sent | Should -BeTrue
+            @($report.Results)[0].Uri | Should -Be 'https://collector.example.com/events'
+
+            Should -Invoke Send-WtcgGenericHttpPayload -Times 1 -ParameterFilter {
+                $Uri -eq 'https://collector.example.com/events?token=secret-query-token' -and
+                $Method -eq 'Post' -and
+                $ContentType -eq 'application/json' -and
+                $TimeoutSeconds -eq 21 -and
+                $RetryCount -eq 0 -and
+                $RetryDelaySeconds -eq 0 -and
+                $AuthHeaderValue -eq 'Bearer secret-token' -and
+                ($Body | ConvertFrom-Json).Count -eq 1 -and
+                ($Body | ConvertFrom-Json)[0].action -eq 'disable'
+            }
+        }
+    }
+
+    It 'exports JSONL events to Elasticsearch bulk endpoint using NDJSON and sanitized reports' {
+        InModuleScope WinTaskCrossingGuard {
+            $envPath = Join-Path $script:TempDir '.env'
+@'
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_EVENTS=disable,notification
+WTCG_TELEMETRY_SINKS=elasticsearch
+WTCG_TELEMETRY_RETRY_COUNT=0
+WTCG_TELEMETRY_RETRY_DELAY_SECONDS=0
+WTCG_ELASTICSEARCH_ENABLED=true
+WTCG_ELASTICSEARCH_URI=https://elastic.example.com:9200/base?apikey=secret-query
+WTCG_ELASTICSEARCH_INDEX=wtcg-events
+WTCG_ELASTICSEARCH_DATA_STREAM=true
+WTCG_ELASTICSEARCH_AUTH_TYPE=ApiKey
+WTCG_ELASTICSEARCH_API_KEY=super-secret-api-key
+WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=true
+'@ | Set-Content -Path $envPath -Encoding utf8
+
+            $context = New-WtcgRunContext -RunId 'wtcg-elastic-stage3' -RunRootPath $script:TempDir
+            $jsonlPath = Resolve-WtcgRunArtifactPath -RunContext $context -Kind 'JsonlLogs' -FileName 'wintaskcrossingguard-events.jsonl'
+            @(
+                '{"schemaVersion":"1.0","action":"disable","runId":"wtcg-elastic-stage3"}'
+                '{"schemaVersion":"1.0","action":"notification","runId":"wtcg-elastic-stage3"}'
+            ) | Set-Content -Path $jsonlPath -Encoding utf8
+
+            Mock Send-WtcgGenericHttpPayload {
+                [pscustomobject]@{
+                    Sent = $true
+                    Uri = $Uri
+                    Method = $Method
+                    ContentType = $ContentType
+                    AttemptCount = 1
+                    StatusCode = $null
+                    Error = $null
+                    HeaderNames = @('Authorization')
+                }
+            }
+
+            $result = Invoke-WtcgTelemetryExportForJsonl -JsonlPath $jsonlPath -RunContext $context -EnvPath $envPath
+
+            $result.Status | Should -Be 'succeeded'
+            $reportText = Get-Content -LiteralPath $result.ReportPath -Raw
+            $reportText | Should -Not -Match 'super-secret-api-key'
+            $reportText | Should -Not -Match 'secret-query'
+            @(($reportText | ConvertFrom-Json).Results)[0].Uri | Should -Be 'https://elastic.example.com:9200/base/_bulk'
+
+            Should -Invoke Send-WtcgGenericHttpPayload -Times 1 -ParameterFilter {
+                $Uri -eq 'https://elastic.example.com:9200/base/_bulk' -and
+                $Method -eq 'Post' -and
+                $ContentType -eq 'application/x-ndjson' -and
+                $AllowInsecureTls -and
+                $Headers['Authorization'] -eq 'ApiKey super-secret-api-key' -and
+                $Body.EndsWith("`n") -and
+                (($Body -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 4)
+            }
+        }
+    }
+
+    It 'writes an export error report when a configured sink fails non-fatally' {
+        InModuleScope WinTaskCrossingGuard {
+            $envPath = Join-Path $script:TempDir '.env'
+@'
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=genericHttp
+WTCG_TELEMETRY_RETRY_COUNT=0
+WTCG_TELEMETRY_RETRY_DELAY_SECONDS=0
+WTCG_GENERIC_HTTP_ENABLED=true
+WTCG_GENERIC_HTTP_URI=https://collector.example.com/events
+'@ | Set-Content -Path $envPath -Encoding utf8
+
+            $context = New-WtcgRunContext -RunId 'wtcg-telemetry-failure' -RunRootPath $script:TempDir
+            $jsonlPath = Resolve-WtcgRunArtifactPath -RunContext $context -Kind 'JsonlLogs' -FileName 'wintaskcrossingguard-events.jsonl'
+            '{"schemaVersion":"1.0","action":"disable","runId":"wtcg-telemetry-failure"}' | Set-Content -Path $jsonlPath -Encoding utf8
+
+            Mock Send-WtcgGenericHttpPayload {
+                [pscustomobject]@{
+                    Sent = $false
+                    Uri = $Uri
+                    Method = $Method
+                    ContentType = $ContentType
+                    AttemptCount = 1
+                    StatusCode = $null
+                    Error = 'collector down'
+                    HeaderNames = @()
+                }
+            }
+
+            $result = Invoke-WtcgTelemetryExportForJsonl -JsonlPath $jsonlPath -RunContext $context -EnvPath $envPath
+
+            $result.Status | Should -Be 'completed-with-errors'
+            Test-Path -LiteralPath $result.ReportPath | Should -BeTrue
+            $report = Get-Content -LiteralPath $result.ReportPath -Raw | ConvertFrom-Json
+            @($report.Results)[0].Sent | Should -BeFalse
+            @($report.Results)[0].Error | Should -Be 'collector down'
+        }
+    }
+
+    It 'does not send or write a report when telemetry is disabled' {
+        InModuleScope WinTaskCrossingGuard {
+            $envPath = Join-Path $script:TempDir '.env'
+            'WTCG_TELEMETRY_ENABLED=false' | Set-Content -Path $envPath -Encoding utf8
+            $context = New-WtcgRunContext -RunId 'wtcg-disabled-telemetry' -RunRootPath $script:TempDir
+            $jsonlPath = Resolve-WtcgRunArtifactPath -RunContext $context -Kind 'JsonlLogs' -FileName 'wintaskcrossingguard-events.jsonl'
+            '{"schemaVersion":"1.0","action":"disable"}' | Set-Content -Path $jsonlPath -Encoding utf8
+
+            Mock Send-WtcgGenericHttpPayload {}
+
+            $result = Invoke-WtcgTelemetryExportForJsonl -JsonlPath $jsonlPath -RunContext $context -EnvPath $envPath
+
+            $result.Status | Should -Be 'skipped-disabled'
+            $result.ReportPath | Should -BeNullOrEmpty
+            Should -Invoke Send-WtcgGenericHttpPayload -Times 0
+        }
+    }
+}

@@ -71,7 +71,7 @@ That module contains the functional behavior:
 - emergency restore wrapper smoke tests
 - XML disable log writing with run correlation fields
 - SIEM-friendly JSONL event writing under steamablelogs with run correlation fields
-- telemetry export settings import, Elastic bulk payload generation, and generic HTTP sender behavior
+- telemetry export settings import, Elastic bulk payload generation, generic HTTP sender behavior, and workflow export reports
 - Windows Event Log audit event formatting for the WinTaskCrossingGuard source
 - default XML log path resolution
 

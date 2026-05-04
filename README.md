@@ -522,9 +522,9 @@ Scheduled re-enable workflows pass the generated JSONL path, `-RunId`, and `-Run
 
 
 
-## Telemetry export Stage 1 and 2: Elastic payloads plus generic HTTP sender
+## Telemetry export Stage 1, 2, and 3: payloads, sender, and workflow export
 
-Stage 1 adds configuration parsing and payload generation for Elastic/OpenSearch-style ingestion. Stage 2 adds a generic HTTP sender with timeout, retry, custom headers, and optional insecure-TLS support. Workflow auto-export is still a later stage; JSONL remains the local source of truth.
+Stage 1 adds configuration parsing and payload generation for Elastic/OpenSearch-style ingestion. Stage 2 adds a generic HTTP sender with timeout, retry, custom headers, and optional insecure-TLS support. Stage 3 wires export into workflows after JSONL writes and stores telemetry export reports in the central run folder. JSONL remains the local source of truth.
 
 Core functions:
 
@@ -536,6 +536,8 @@ ConvertTo-WtcgHttpHeaderDictionary
 Invoke-WtcgTelemetryRestMethod
 Invoke-WtcgHttpRequestWithRetry
 Send-WtcgGenericHttpPayload
+Invoke-WtcgTelemetryExportForJsonl
+Save-WtcgTelemetryExportReport
 ```
 
 Example `.env` settings:
@@ -599,7 +601,7 @@ $result = Send-WtcgGenericHttpPayload `
   -FailOnError:$settings.FailOnError
 ```
 
-When `-DataStream` is used, the bulk action metadata uses `create`. Otherwise it uses `index` by default. Generated payloads always end with a final newline and do not include configured API keys, passwords, bearer tokens, or custom auth header values. Sender results include header names but not header values.
+When `-DataStream` is used, the bulk action metadata uses `create`. Otherwise it uses `index` by default. Generated payloads always end with a final newline and do not include configured API keys, passwords, bearer tokens, or custom auth header values. Sender results include header names but not header values. When telemetry is enabled, workflow-level exports write `reports/telemetry-export-report.json` for successful or partially successful exports and `errors/telemetry-export-error.json` if export processing itself fails. Telemetry export is skipped by default because `WTCG_TELEMETRY_ENABLED=false`.
 
 ## Windows Event Log audit trail
 
