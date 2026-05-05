@@ -3588,6 +3588,190 @@ function Get-WtcgEnvValue {
     return $Default
 }
 
+function Get-WtcgTelemetrySettings {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $EnvPath = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env')
+    )
+
+    $envValues = Import-WtcgDotEnv -Path $EnvPath
+
+    $enabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_TELEMETRY_ENABLED' -Default $false) -Default $false
+    $events = ConvertTo-WtcgStringList -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_TELEMETRY_EVENTS' -Default 'result,error,notification,disable,re-enable,scheduled-reenable') -Default @('result', 'error', 'notification', 'disable', 're-enable', 'scheduled-reenable')
+    $sinks = ConvertTo-WtcgStringList -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_TELEMETRY_SINKS' -Default 'elasticsearch') -Default @('elasticsearch')
+    $failOnError = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_TELEMETRY_FAIL_ON_ERROR' -Default $false) -Default $false
+
+    $timeoutSeconds = 15
+    $rawTimeout = Get-WtcgEnvValue -Values $envValues -Name 'WTCG_TELEMETRY_TIMEOUT_SECONDS' -Default 15
+    if (-not [int]::TryParse([string]$rawTimeout, [ref]$timeoutSeconds) -or $timeoutSeconds -le 0) {
+        throw "Invalid WTCG_TELEMETRY_TIMEOUT_SECONDS value '$rawTimeout'. Expected a positive whole number."
+    }
+
+    $batchSize = 100
+    $rawBatchSize = Get-WtcgEnvValue -Values $envValues -Name 'WTCG_TELEMETRY_BATCH_SIZE' -Default 100
+    if (-not [int]::TryParse([string]$rawBatchSize, [ref]$batchSize) -or $batchSize -le 0) {
+        throw "Invalid WTCG_TELEMETRY_BATCH_SIZE value '$rawBatchSize'. Expected a positive whole number."
+    }
+
+    $retryCount = 2
+    $rawRetryCount = Get-WtcgEnvValue -Values $envValues -Name 'WTCG_TELEMETRY_RETRY_COUNT' -Default 2
+    if (-not [int]::TryParse([string]$rawRetryCount, [ref]$retryCount) -or $retryCount -lt 0) {
+        throw "Invalid WTCG_TELEMETRY_RETRY_COUNT value '$rawRetryCount'. Expected zero or a positive whole number."
+    }
+
+    $retryDelaySeconds = 2
+    $rawRetryDelaySeconds = Get-WtcgEnvValue -Values $envValues -Name 'WTCG_TELEMETRY_RETRY_DELAY_SECONDS' -Default 2
+    if (-not [int]::TryParse([string]$rawRetryDelaySeconds, [ref]$retryDelaySeconds) -or $retryDelaySeconds -lt 0) {
+        throw "Invalid WTCG_TELEMETRY_RETRY_DELAY_SECONDS value '$rawRetryDelaySeconds'. Expected zero or a positive whole number."
+    }
+
+    $elasticAuthType = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_AUTH_TYPE' -Default 'None')
+    if ([string]::IsNullOrWhiteSpace($elasticAuthType)) { $elasticAuthType = 'None' }
+    $elasticAuthType = $elasticAuthType.Trim()
+    $allowedAuthTypes = @('None', 'ApiKey', 'Bearer', 'Basic')
+    $matchedAuthType = @($allowedAuthTypes | Where-Object { $_ -ieq $elasticAuthType } | Select-Object -First 1)
+    if ($matchedAuthType.Count -eq 0) {
+        throw "Invalid WTCG_ELASTICSEARCH_AUTH_TYPE value '$elasticAuthType'. Expected one of: $($allowedAuthTypes -join ', ')."
+    }
+    $elasticAuthType = [string]$matchedAuthType[0]
+
+    $elasticDataStream = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_DATA_STREAM' -Default $false) -Default $false
+    $elasticEnabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_ENABLED' -Default $false) -Default $false
+    $elasticAllowInsecureTls = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS' -Default $false) -Default $false
+    $elasticIndex = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_INDEX' -Default 'wintaskcrossingguard-events')
+    if ([string]::IsNullOrWhiteSpace($elasticIndex)) {
+        $elasticIndex = 'wintaskcrossingguard-events'
+    }
+
+    [pscustomobject]@{
+        Enabled           = $enabled
+        EnvPath           = $EnvPath
+        Events            = @($events | ForEach-Object { ([string]$_).ToLowerInvariant() })
+        Sinks             = @($sinks | ForEach-Object { ([string]$_).ToLowerInvariant() })
+        FailOnError       = $failOnError
+        TimeoutSeconds    = $timeoutSeconds
+        BatchSize         = $batchSize
+        RetryCount        = $retryCount
+        RetryDelaySeconds = $retryDelaySeconds
+        Elasticsearch     = [pscustomobject]@{
+            Enabled          = $elasticEnabled
+            Uri              = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_URI' -Default '')
+            Index            = $elasticIndex
+            DataStream       = $elasticDataStream
+            AuthType         = $elasticAuthType
+            ApiKey           = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_API_KEY' -Default '')
+            Username         = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_USERNAME' -Default '')
+            Password         = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_PASSWORD' -Default '')
+            AllowInsecureTls = $elasticAllowInsecureTls
+        }
+    }
+}
+
+function Import-WtcgJsonlEvent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "JSONL event file not found: $Path"
+    }
+
+    $lineNumber = 0
+    foreach ($line in Get-Content -LiteralPath $Path -ErrorAction Stop) {
+        $lineNumber++
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+
+        try {
+            $line | ConvertFrom-Json -ErrorAction Stop
+        }
+        catch {
+            throw "Invalid JSONL event at line $lineNumber in '$Path': $($_.Exception.Message)"
+        }
+    }
+}
+
+function ConvertTo-WtcgElasticBulkPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [AllowNull()]
+        [object[]] $Event,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlPath,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Index = 'wintaskcrossingguard-events',
+
+        [Parameter()]
+        [switch] $DataStream,
+
+        [Parameter()]
+        [ValidateSet('index', 'create')]
+        [string] $Action = 'index'
+    )
+
+    begin {
+        $events = [System.Collections.Generic.List[object]]::new()
+    }
+
+    process {
+        foreach ($entry in @($Event)) {
+            if ($null -ne $entry) {
+                $events.Add($entry)
+            }
+        }
+    }
+
+    end {
+        if (-not [string]::IsNullOrWhiteSpace($JsonlPath)) {
+            foreach ($entry in Import-WtcgJsonlEvent -Path $JsonlPath) {
+                if ($null -ne $entry) {
+                    $events.Add($entry)
+                }
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($Index)) {
+            throw 'Elasticsearch index or data stream name cannot be empty.'
+        }
+
+        if ($events.Count -eq 0) {
+            return ''
+        }
+
+        $bulkActionName = if ($DataStream) { 'create' } else { $Action.ToLowerInvariant() }
+        $lines = [System.Collections.Generic.List[string]]::new()
+
+        foreach ($entry in $events) {
+            $document = $entry
+            if ($entry -is [string]) {
+                $document = $entry | ConvertFrom-Json -ErrorAction Stop
+            }
+
+            $metadataBody = [ordered]@{ _index = $Index }
+            $metadata = [ordered]@{}
+            $metadata[$bulkActionName] = $metadataBody
+
+            $lines.Add(($metadata | ConvertTo-Json -Depth 20 -Compress))
+            $lines.Add(($document | ConvertTo-Json -Depth 20 -Compress))
+        }
+
+        return (($lines -join "`n") + "`n")
+    }
+}
+
 function ConvertTo-WtcgWebhookTargetSettings {
     [CmdletBinding()]
     param(
@@ -4894,6 +5078,7 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -AttachXmlLog `
                 -FailOnEmailError:$FailOnErrorEmail
         }
+
         throw $wtcgTrapError.Exception.Message
     }
 
