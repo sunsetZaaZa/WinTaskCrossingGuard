@@ -196,6 +196,11 @@ try {
     Write-Host "Emergency restore report written to:"
     Write-Host "  $($reportFile.FullName)"
 
+    $telemetryExportResult = Invoke-WtcgTelemetryExportForJsonl `
+        -JsonlPath $JsonlLogPath `
+        -RunContext $runContext `
+        -Operation 'EmergencyRestoreLatestDisabledTasks'
+
     $result = [pscustomobject]@{
         RunId                = $RunId
         RunFolderPath        = $RunFolderPath
@@ -204,6 +209,7 @@ try {
         ArtifactKind         = $artifactSummary.Kind
         ArtifactLastWriteTimeUtc = $artifactSummary.LastWriteTimeUtc
         ReportPath           = $reportFile.FullName
+        TelemetryExportReportPath = $telemetryExportResult.ReportPath
         JsonlLogPath         = $JsonlLogPath
         CandidateTaskCount   = $identities.Count
         RestoredTaskCount    = $restored.Count
@@ -255,6 +261,17 @@ catch {
         -DisableEventLog:$DisableEventLog `
         -FailOnEventLogError:$FailOnEventLogError |
         Out-Null
+
+    try {
+        Invoke-WtcgTelemetryExportForJsonl `
+            -JsonlPath $JsonlLogPath `
+            -RunContext $runContext `
+            -Operation 'EmergencyRestoreLatestDisabledTasks' |
+            Out-Null
+    }
+    catch {
+        Write-Verbose "Failed to export WinTaskCrossingGuard telemetry events: $($_.Exception.Message)"
+    }
 
     throw
 }

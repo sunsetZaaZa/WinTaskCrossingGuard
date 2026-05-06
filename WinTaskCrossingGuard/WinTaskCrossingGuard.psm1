@@ -4122,6 +4122,438 @@ function Send-WtcgGenericHttpPayload {
         -FailOnError:$FailOnError
 }
 
+
+function Test-WtcgTelemetryEventAllowed {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Event,
+
+        [Parameter()]
+        [AllowNull()]
+        [string[]] $AllowedEvents
+    )
+
+    if ($null -eq $AllowedEvents -or @($AllowedEvents).Count -eq 0) {
+        return $true
+    }
+
+    $normalizedAllowedEvents = @($AllowedEvents | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    if ($normalizedAllowedEvents -contains '*' -or $normalizedAllowedEvents -contains 'all') {
+        return $true
+    }
+
+    $action = ([string](Get-WtcgObjectPropertyValue -InputObject $Event -Name 'action' -DefaultValue '')).ToLowerInvariant()
+    $status = ([string](Get-WtcgObjectPropertyValue -InputObject $Event -Name 'status' -DefaultValue '')).ToLowerInvariant()
+    $operation = ([string](Get-WtcgObjectPropertyValue -InputObject $Event -Name 'operation' -DefaultValue '')).ToLowerInvariant()
+
+    return (
+        (-not [string]::IsNullOrWhiteSpace($action) -and $normalizedAllowedEvents -contains $action) -or
+        (-not [string]::IsNullOrWhiteSpace($status) -and $normalizedAllowedEvents -contains $status) -or
+        (-not [string]::IsNullOrWhiteSpace($operation) -and $normalizedAllowedEvents -contains $operation)
+    )
+}
+
+function Select-WtcgTelemetryEvent {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [AllowNull()]
+        [object[]] $Event,
+
+        [Parameter()]
+        [AllowNull()]
+        [string[]] $AllowedEvents
+    )
+
+    process {
+        foreach ($entry in @($Event)) {
+            if ($null -ne $entry -and (Test-WtcgTelemetryEventAllowed -Event $entry -AllowedEvents $AllowedEvents)) {
+                $entry
+            }
+        }
+    }
+}
+
+function ConvertTo-WtcgGenericHttpTelemetryPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [ValidateSet('ndjson', 'jsonArray', 'raw')]
+        [string] $Format = 'ndjson',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [string[]] $AllowedEvents
+    )
+
+    if ([string]::IsNullOrWhiteSpace($JsonlPath)) {
+        return ''
+    }
+
+    if (-not (Test-Path -LiteralPath $JsonlPath)) {
+        throw "JSONL event file not found: $JsonlPath"
+    }
+
+    if ($Format -ieq 'raw') {
+        return (Get-Content -LiteralPath $JsonlPath -Raw -ErrorAction Stop)
+    }
+
+    $events = @(Import-WtcgJsonlEvent -Path $JsonlPath | Select-WtcgTelemetryEvent -AllowedEvents $AllowedEvents)
+
+    if ($Format -ieq 'jsonArray') {
+        return ($events | ConvertTo-Json -Depth 20 -Compress -AsArray)
+    }
+
+    if ($events.Count -eq 0) {
+        return ''
+    }
+
+    $lines = @($events | ForEach-Object { $_ | ConvertTo-Json -Depth 20 -Compress })
+    return (($lines -join "`n") + "`n")
+}
+
+function Resolve-WtcgElasticBulkUri {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Uri
+    )
+
+    try {
+        $builder = [System.UriBuilder]::new($Uri.Trim())
+        $builder.Query = $null
+        $path = $builder.Path.TrimEnd('/')
+        if ($path -notmatch '/_bulk$') {
+            $path = "$path/_bulk"
+        }
+        $builder.Path = $path
+        return $builder.Uri.AbsoluteUri
+    }
+    catch {
+        $trimmed = $Uri.Trim().TrimEnd('/')
+        if ($trimmed -match '/_bulk$') {
+            return $trimmed
+        }
+        return "$trimmed/_bulk"
+    }
+}
+
+function Get-WtcgElasticAuthHeader {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [ValidateSet('None', 'ApiKey', 'Bearer', 'Basic')]
+        [string] $AuthType = 'None',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ApiKey,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Username,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Password
+    )
+
+    switch ($AuthType) {
+        'ApiKey' {
+            if ([string]::IsNullOrWhiteSpace($ApiKey)) { return @{} }
+            return @{ Authorization = "ApiKey $ApiKey" }
+        }
+        'Bearer' {
+            if ([string]::IsNullOrWhiteSpace($ApiKey)) { return @{} }
+            return @{ Authorization = "Bearer $ApiKey" }
+        }
+        'Basic' {
+            if ([string]::IsNullOrWhiteSpace($Username) -or [string]::IsNullOrWhiteSpace($Password)) { return @{} }
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes("${Username}:${Password}")
+            return @{ Authorization = ('Basic ' + [Convert]::ToBase64String($bytes)) }
+        }
+        default { return @{} }
+    }
+}
+
+function ConvertTo-WtcgTelemetryExportResultSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $SinkName,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Result,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Uri,
+
+        [Parameter()]
+        [int] $EventCount = 0,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ErrorMessage
+    )
+
+    $safeUri = $null
+    if (-not [string]::IsNullOrWhiteSpace($Uri)) {
+        try {
+            $builder = [System.UriBuilder]::new($Uri)
+            $builder.Query = $null
+            $safeUri = $builder.Uri.AbsoluteUri
+        }
+        catch {
+            $safeUri = '[invalid-uri]'
+        }
+    }
+
+    $sent = if ($null -ne $Result) { [bool](Get-WtcgObjectPropertyValue -InputObject $Result -Name 'Sent' -DefaultValue $false) } else { $false }
+    $attemptCount = if ($null -ne $Result) { Get-WtcgObjectPropertyValue -InputObject $Result -Name 'AttemptCount' } else { $null }
+    $statusCode = if ($null -ne $Result) { Get-WtcgObjectPropertyValue -InputObject $Result -Name 'StatusCode' } else { $null }
+    $resultError = if ($null -ne $Result) { Get-WtcgObjectPropertyValue -InputObject $Result -Name 'Error' } else { $null }
+
+    [pscustomobject]@{
+        SinkName     = $SinkName
+        Sent         = $sent
+        EventCount   = $EventCount
+        Uri          = $safeUri
+        AttemptCount = $attemptCount
+        StatusCode   = $statusCode
+        Error        = if (-not [string]::IsNullOrWhiteSpace($ErrorMessage)) { $ErrorMessage } else { $resultError }
+        HeaderNames  = if ($null -ne $Result) { @(Get-WtcgObjectPropertyValue -InputObject $Result -Name 'HeaderNames' -DefaultValue @()) } else { @() }
+    }
+}
+
+function Save-WtcgTelemetryExportReport {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $RunContext,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Operation = 'TelemetryExport',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Status,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [object[]] $Results
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path) -and $null -ne $RunContext) {
+        $Path = Resolve-WtcgRunArtifactPath -RunContext $RunContext -Kind 'Reports' -FileName 'telemetry-export-report.json'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    $directory = Split-Path -Parent $Path
+    if ($directory) {
+        New-Item -ItemType Directory -Path $directory -Force -WhatIf:$false | Out-Null
+    }
+
+    [pscustomobject]@{
+        Kind          = 'WinTaskCrossingGuard.TelemetryExportReport'
+        Version       = 1
+        RunId         = if ($null -ne $RunContext) { $RunContext.RunId } else { $null }
+        RunFolderPath = if ($null -ne $RunContext) { $RunContext.RunFolderPath } else { $null }
+        Operation     = $Operation
+        Status        = $Status
+        JsonlPath     = $JsonlPath
+        CreatedAt     = (Get-Date).ToString('o')
+        Results       = @($Results)
+    } | ConvertTo-Json -Depth 20 | Set-Content -Path $Path -Encoding utf8 -WhatIf:$false
+
+    Get-Item -LiteralPath $Path
+}
+
+function Invoke-WtcgTelemetryExportForJsonl {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $JsonlPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $RunContext,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $EnvPath = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env'),
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ReportPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $ErrorReportPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Operation = 'TelemetryExport'
+    )
+
+    if ([string]::IsNullOrWhiteSpace($JsonlPath) -or -not (Test-Path -LiteralPath $JsonlPath)) {
+        return [pscustomobject]@{
+            Enabled    = $false
+            Status     = 'skipped-missing-jsonl'
+            JsonlPath  = $JsonlPath
+            ReportPath = $null
+            Results    = @()
+        }
+    }
+
+    $settings = Get-WtcgTelemetrySettings -EnvPath $EnvPath
+    if (-not [bool]$settings.Enabled) {
+        return [pscustomobject]@{
+            Enabled    = $false
+            Status     = 'skipped-disabled'
+            JsonlPath  = $JsonlPath
+            ReportPath = $null
+            Results    = @()
+        }
+    }
+
+    $events = @(Import-WtcgJsonlEvent -Path $JsonlPath | Select-WtcgTelemetryEvent -AllowedEvents $settings.Events)
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    try {
+        $sinkNames = @($settings.Sinks | ForEach-Object { ([string]$_).ToLowerInvariant() })
+
+        if (($sinkNames -contains 'generic' -or $sinkNames -contains 'generichttp' -or $sinkNames -contains 'http') -and [bool]$settings.GenericHttp.Enabled) {
+            if ([string]::IsNullOrWhiteSpace([string]$settings.GenericHttp.Uri)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'genericHttp' -EventCount $events.Count -ErrorMessage 'WTCG_GENERIC_HTTP_URI is not configured.'))
+            }
+            else {
+                $body = ConvertTo-WtcgGenericHttpTelemetryPayload -Format $settings.GenericHttp.Format -JsonlPath $JsonlPath -AllowedEvents $settings.Events
+                $sendResult = Send-WtcgGenericHttpPayload `
+                    -Uri $settings.GenericHttp.Uri `
+                    -Method $settings.GenericHttp.Method `
+                    -Body $body `
+                    -ContentType $settings.GenericHttp.ContentType `
+                    -Headers $settings.GenericHttp.Headers `
+                    -AuthHeaderName $settings.GenericHttp.AuthHeaderName `
+                    -AuthHeaderValue $settings.GenericHttp.AuthHeaderValue `
+                    -TimeoutSeconds $settings.TimeoutSeconds `
+                    -RetryCount $settings.RetryCount `
+                    -RetryDelaySeconds $settings.RetryDelaySeconds `
+                    -AllowInsecureTls:$settings.GenericHttp.AllowInsecureTls `
+                    -FailOnError:$settings.FailOnError
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'genericHttp' -Result $sendResult -Uri $settings.GenericHttp.Uri -EventCount $events.Count))
+            }
+        }
+
+        if (($sinkNames -contains 'elasticsearch' -or $sinkNames -contains 'elastic' -or $sinkNames -contains 'opensearch') -and [bool]$settings.Elasticsearch.Enabled) {
+            if ([string]::IsNullOrWhiteSpace([string]$settings.Elasticsearch.Uri)) {
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'elasticsearch' -EventCount $events.Count -ErrorMessage 'WTCG_ELASTICSEARCH_URI is not configured.'))
+            }
+            else {
+                $elasticUri = Resolve-WtcgElasticBulkUri -Uri $settings.Elasticsearch.Uri
+                $headers = Get-WtcgElasticAuthHeader -AuthType $settings.Elasticsearch.AuthType -ApiKey $settings.Elasticsearch.ApiKey -Username $settings.Elasticsearch.Username -Password $settings.Elasticsearch.Password
+                $body = $events | ConvertTo-WtcgElasticBulkPayload -Index $settings.Elasticsearch.Index -DataStream:$settings.Elasticsearch.DataStream
+                $sendResult = Send-WtcgGenericHttpPayload `
+                    -Uri $elasticUri `
+                    -Method 'Post' `
+                    -Body $body `
+                    -ContentType 'application/x-ndjson' `
+                    -Headers $headers `
+                    -TimeoutSeconds $settings.TimeoutSeconds `
+                    -RetryCount $settings.RetryCount `
+                    -RetryDelaySeconds $settings.RetryDelaySeconds `
+                    -AllowInsecureTls:$settings.Elasticsearch.AllowInsecureTls `
+                    -FailOnError:$settings.FailOnError
+                $results.Add((ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'elasticsearch' -Result $sendResult -Uri $elasticUri -EventCount $events.Count))
+            }
+        }
+
+        $status = if ($results.Count -eq 0) {
+            'skipped-no-enabled-sinks'
+        }
+        elseif (@($results | Where-Object { -not $_.Sent }).Count -gt 0) {
+            'completed-with-errors'
+        }
+        else {
+            'succeeded'
+        }
+
+        $reportFile = Save-WtcgTelemetryExportReport -RunContext $RunContext -Path $ReportPath -Operation $Operation -Status $status -JsonlPath $JsonlPath -Results @($results)
+
+        if ($settings.FailOnError -and $status -eq 'completed-with-errors') {
+            throw "Telemetry export failed for one or more sinks. Report: $($reportFile.FullName)"
+        }
+
+        return [pscustomobject]@{
+            Enabled    = $true
+            Status     = $status
+            JsonlPath  = $JsonlPath
+            ReportPath = if ($null -ne $reportFile) { $reportFile.FullName } else { $null }
+            Results    = @($results)
+        }
+    }
+    catch {
+        $errorResult = ConvertTo-WtcgTelemetryExportResultSummary -SinkName 'telemetryExport' -EventCount $events.Count -ErrorMessage $_.Exception.Message
+        $errorPath = $ErrorReportPath
+        if ([string]::IsNullOrWhiteSpace($errorPath) -and $null -ne $RunContext) {
+            $errorPath = Resolve-WtcgRunArtifactPath -RunContext $RunContext -Kind 'Errors' -FileName 'telemetry-export-error.json'
+        }
+
+        Save-WtcgTelemetryExportReport -RunContext $RunContext -Path $errorPath -Operation $Operation -Status 'failed' -JsonlPath $JsonlPath -Results @($errorResult) | Out-Null
+
+        if ($settings.FailOnError) {
+            throw
+        }
+
+        return [pscustomobject]@{
+            Enabled    = $true
+            Status     = 'failed'
+            JsonlPath  = $JsonlPath
+            ReportPath = $errorPath
+            Results    = @($errorResult)
+        }
+    }
+}
+
 function ConvertTo-WtcgWebhookTargetSettings {
     [CmdletBinding()]
     param(
@@ -5429,6 +5861,17 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
                 -FailOnEmailError:$FailOnErrorEmail
         }
 
+        try {
+            Invoke-WtcgTelemetryExportForJsonl `
+                -JsonlPath $errorJsonlLogFile.FullName `
+                -RunContext $runContext `
+                -Operation 'DisableTasksInWindowAndScheduleReenable' |
+                Out-Null
+        }
+        catch {
+            Write-Verbose "Failed to export WinTaskCrossingGuard telemetry events: $($_.Exception.Message)"
+        }
+
         throw $wtcgTrapError.Exception.Message
     }
 
@@ -5782,11 +6225,17 @@ function Disable-WtcgTasksInWindowAndScheduleReenable {
     Write-Host "Run report written to:"
     Write-Host "  $($reportFile.FullName)"
 
+    $telemetryExportResult = Invoke-WtcgTelemetryExportForJsonl `
+        -JsonlPath $effectiveJsonlLogPath `
+        -RunContext $runContext `
+        -Operation 'DisableTasksInWindowAndScheduleReenable'
+
     $result = [pscustomobject]@{
         RunId                 = $RunId
         RunFolderPath         = $RunFolderPath
         RunInfoPath           = $runContext.RunInfoPath
         ReportPath            = $reportFile.FullName
+        TelemetryExportReportPath = $telemetryExportResult.ReportPath
         WindowStart           = $window.Start
         WindowEnd             = $window.End
         DisabledTaskCount     = $disabledTaskIdentities.Count

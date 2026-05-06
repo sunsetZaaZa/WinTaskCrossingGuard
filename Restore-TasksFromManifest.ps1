@@ -117,6 +117,17 @@ trap {
         Out-Null
 
 
+    try {
+        Invoke-WtcgTelemetryExportForJsonl `
+            -JsonlPath $JsonlLogPath `
+            -RunContext $runContext `
+            -Operation 'RestoreTasksFromManifest' |
+            Out-Null
+    }
+    catch {
+        Write-Verbose "Failed to export WinTaskCrossingGuard telemetry events: $($_.Exception.Message)"
+    }
+
     throw
 }
 
@@ -199,6 +210,11 @@ $reportFile = Save-WtcgRunReport `
         jsonlLogPath = $JsonlLogPath
     })
 Write-Host "Run report written to: $($reportFile.FullName)"
+
+$telemetryExportResult = Invoke-WtcgTelemetryExportForJsonl `
+    -JsonlPath $JsonlLogPath `
+    -RunContext $runContext `
+    -Operation 'RestoreTasksFromManifest'
 
 if ($PassThru) {
     $restored
