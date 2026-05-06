@@ -641,7 +641,9 @@ WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
 
             $payload = $event | ConvertTo-WtcgSplunkHecPayload -Index 'main' -Source 'WinTaskCrossingGuard' -Sourcetype '_json'
             $payload.EndsWith("`n") | Should -BeTrue
-            $hec = ($payload -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })[0] | ConvertFrom-Json
+            $payloadLine = ([string]$payload).Trim()
+            $payloadLine | Should -Not -Match "(`r`n|`n|`r)"
+            $hec = $payloadLine | ConvertFrom-Json
             $hec.index | Should -Be 'main'
             $hec.source | Should -Be 'WinTaskCrossingGuard'
             $hec.sourcetype | Should -Be '_json'
@@ -669,7 +671,13 @@ WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
             $payload = $event | ConvertTo-WtcgAzureMonitorPayload
             $records = @($payload | ConvertFrom-Json)
             $records.Count | Should -Be 1
-            $records[0].TimeGenerated | Should -Be '2030-01-02T03:04:05Z'
+            $timeGenerated = if ($records[0].TimeGenerated -is [datetime]) {
+                $records[0].TimeGenerated.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [System.Globalization.CultureInfo]::InvariantCulture)
+            }
+            else {
+                [string]$records[0].TimeGenerated
+            }
+            $timeGenerated | Should -Be '2030-01-02T03:04:05Z'
             $records[0].Action | Should -Be 'disable'
             $records[0].RunId | Should -Be 'wtcg-azure'
             $records[0].RawEvent.runId | Should -Be 'wtcg-azure'

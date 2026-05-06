@@ -3869,8 +3869,8 @@ function ConvertTo-WtcgElasticBulkPayload {
             $metadata = [ordered]@{}
             $metadata[$bulkActionName] = $metadataBody
 
-            $lines.Add(($metadata | ConvertTo-Json -Depth 20 -Compress))
-            $lines.Add(($document | ConvertTo-Json -Depth 20 -Compress))
+            $lines.Add((ConvertTo-WtcgCompactJson -InputObject $metadata -Depth 20))
+            $lines.Add((ConvertTo-WtcgCompactJson -InputObject $document -Depth 20))
         }
 
         return (($lines -join "`n") + "`n")
@@ -4276,14 +4276,14 @@ function ConvertTo-WtcgGenericHttpTelemetryPayload {
     $events = @(Import-WtcgJsonlEvent -Path $JsonlPath | Select-WtcgTelemetryEvent -AllowedEvents $AllowedEvents)
 
     if ($Format -ieq 'jsonArray') {
-        return ($events | ConvertTo-Json -Depth 20 -Compress -AsArray)
+        return (ConvertTo-WtcgCompactJson -InputObject $events -Depth 20 -AsArray)
     }
 
     if ($events.Count -eq 0) {
         return ''
     }
 
-    $lines = @($events | ForEach-Object { $_ | ConvertTo-Json -Depth 20 -Compress })
+    $lines = @($events | ForEach-Object { ConvertTo-WtcgCompactJson -InputObject $_ -Depth 20 })
     return (($lines -join "`n") + "`n")
 }
 
@@ -4429,7 +4429,7 @@ function ConvertTo-WtcgDatadogLogPayload {
             [pscustomobject]$log
         }
 
-        return ($logs | ConvertTo-Json -Depth 30 -Compress -AsArray)
+        return (ConvertTo-WtcgCompactJson -InputObject $logs -Depth 30 -AsArray)
     }
 }
 
@@ -4498,6 +4498,84 @@ function ConvertTo-WtcgUnixEpochSeconds {
     $dateTimeOffset.ToUnixTimeSeconds()
 }
 
+function ConvertTo-WtcgCompactJson {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [AllowNull()]
+        [object] $InputObject,
+
+        [Parameter()]
+        [ValidateRange(1, 100)]
+        [int] $Depth = 30,
+
+        [Parameter()]
+        [switch] $AsArray
+    )
+
+    process {
+        $jsonInput = $InputObject
+        if ($null -ne $jsonInput -and $jsonInput -is [System.Collections.IDictionary]) {
+            # Convert dictionaries to PSCustomObject before JSON serialization so
+            # PowerShell never emits one DictionaryEntry per line for telemetry NDJSON/HEC payloads.
+            $jsonInput = [pscustomobject]$jsonInput
+        }
+
+        if ($AsArray) {
+            $json = ConvertTo-Json -InputObject $jsonInput -Depth $Depth -Compress -AsArray
+        }
+        else {
+            $json = ConvertTo-Json -InputObject $jsonInput -Depth $Depth -Compress
+        }
+
+        if ($null -eq $json) {
+            Write-Output -NoEnumerate ''
+            return
+        }
+
+        $text = [string]::Join('', @($json | ForEach-Object { [string]$_ }))
+        $compact = [System.Text.RegularExpressions.Regex]::Replace($text, "(`r`n|`n|`r)\s*", '')
+        Write-Output -NoEnumerate $compact
+    }
+}
+
+function ConvertTo-WtcgTelemetryTimestampUtcString {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Value
+    )
+
+    $culture = [System.Globalization.CultureInfo]::InvariantCulture
+    $format = 'yyyy-MM-ddTHH:mm:ssZ'
+
+    if ($null -eq $Value) {
+        return (Get-Date).ToUniversalTime().ToString($format, $culture)
+    }
+
+    if ($Value -is [datetimeoffset]) {
+        return $Value.UtcDateTime.ToString($format, $culture)
+    }
+
+    if ($Value -is [datetime]) {
+        return $Value.ToUniversalTime().ToString($format, $culture)
+    }
+
+    $text = ([string]$Value).Trim()
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return (Get-Date).ToUniversalTime().ToString($format, $culture)
+    }
+
+    $dateTimeOffset = [datetimeoffset]::MinValue
+    $styles = [System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal
+    if ([datetimeoffset]::TryParse($text, $culture, $styles, [ref]$dateTimeOffset)) {
+        return $dateTimeOffset.UtcDateTime.ToString($format, $culture)
+    }
+
+    return $text
+}
+
 function ConvertTo-WtcgSplunkHecPayload {
     [CmdletBinding()]
     param(
@@ -4545,22 +4623,48 @@ function ConvertTo-WtcgSplunkHecPayload {
 
         if ($events.Count -eq 0) { return '' }
 
-        $lines = foreach ($entry in $events) {
+        # Build the full HEC body with a StringBuilder and write it as one
+        # scalar string. This avoids two PowerShell gotchas that break NDJSON/HEC
+        # tests on some hosts: foreach output collection and accidental pipeline
+        # enumeration of strings/objects returned from nested helpers.
+        $body = [System.Text.StringBuilder]::new()
+        foreach ($entry in $events) {
             $timestamp = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'timestampUtc'
             $hostName = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'hostName'
-            $hecEvent = [ordered]@{
-                source     = $Source
-                sourcetype = $Sourcetype
-                event      = $entry
-            }
-            if (-not [string]::IsNullOrWhiteSpace($Index)) { $hecEvent.index = $Index }
-            if (-not [string]::IsNullOrWhiteSpace([string]$hostName)) { $hecEvent.host = [string]$hostName }
             $epoch = ConvertTo-WtcgUnixEpochSeconds -Value $timestamp
-            if ($null -ne $epoch) { $hecEvent.time = $epoch }
-            $hecEvent | ConvertTo-Json -Depth 30 -Compress
+
+            # Splunk HEC accepts newline-delimited event envelopes. Build the
+            # envelope explicitly so the top-level JSON object is guaranteed to
+            # remain a single physical line even when PowerShell serializes
+            # ordered dictionaries differently across versions/platforms.
+            $sourceJson = [string]::Concat(@(ConvertTo-WtcgCompactJson -InputObject $Source -Depth 5))
+            $sourcetypeJson = [string]::Concat(@(ConvertTo-WtcgCompactJson -InputObject $Sourcetype -Depth 5))
+            $eventJson = [string]::Concat(@(ConvertTo-WtcgCompactJson -InputObject $entry -Depth 30))
+
+            $parts = [System.Collections.Generic.List[string]]::new()
+            [void]$parts.Add('"source":' + $sourceJson)
+            [void]$parts.Add('"sourcetype":' + $sourcetypeJson)
+            [void]$parts.Add('"event":' + $eventJson)
+
+            if (-not [string]::IsNullOrWhiteSpace($Index)) {
+                $indexJson = [string]::Concat(@(ConvertTo-WtcgCompactJson -InputObject $Index -Depth 5))
+                [void]$parts.Add('"index":' + $indexJson)
+            }
+            if (-not [string]::IsNullOrWhiteSpace([string]$hostName)) {
+                $hostJson = [string]::Concat(@(ConvertTo-WtcgCompactJson -InputObject ([string]$hostName) -Depth 5))
+                [void]$parts.Add('"host":' + $hostJson)
+            }
+            if ($null -ne $epoch) {
+                [void]$parts.Add('"time":' + ([string]$epoch))
+            }
+
+            $line = '{' + ($parts -join ',') + '}'
+            $line = [System.Text.RegularExpressions.Regex]::Replace([string]$line, "(`r`n|`n|`r)\s*", '')
+            [void]$body.Append($line)
+            [void]$body.Append("`n")
         }
 
-        return (($lines -join "`n") + "`n")
+        Write-Output -NoEnumerate $body.ToString()
     }
 }
 
@@ -4606,7 +4710,7 @@ function Resolve-WtcgAzureMonitorLogsIngestionUri {
     }
 
     $base = $Endpoint.Trim().TrimEnd('/')
-    "$base/dataCollectionRules/$DataCollectionRuleId/streams/$StreamName?api-version=$ApiVersion"
+    '{0}/dataCollectionRules/{1}/streams/{2}?api-version={3}' -f $base, $DataCollectionRuleId, $StreamName, $ApiVersion
 }
 
 function Get-WtcgBearerAuthHeader {
@@ -4655,7 +4759,7 @@ function ConvertTo-WtcgAzureMonitorPayload {
         $records = foreach ($entry in $events) {
             $timestamp = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'timestampUtc'
             [pscustomobject][ordered]@{
-                TimeGenerated = if (-not [string]::IsNullOrWhiteSpace([string]$timestamp)) { [string]$timestamp } else { (Get-Date).ToUniversalTime().ToString('o') }
+                TimeGenerated = ConvertTo-WtcgTelemetryTimestampUtcString -Value $timestamp
                 Source        = 'WinTaskCrossingGuard'
                 Action        = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'action'
                 Operation     = Get-WtcgObjectPropertyValue -InputObject $entry -Name 'operation'
@@ -4670,7 +4774,7 @@ function ConvertTo-WtcgAzureMonitorPayload {
             }
         }
 
-        return ($records | ConvertTo-Json -Depth 30 -Compress -AsArray)
+        return (ConvertTo-WtcgCompactJson -InputObject $records -Depth 30 -AsArray)
     }
 }
 
