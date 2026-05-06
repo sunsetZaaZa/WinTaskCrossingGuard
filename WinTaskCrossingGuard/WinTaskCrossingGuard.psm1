@@ -3646,6 +3646,32 @@ function Get-WtcgTelemetrySettings {
         $elasticIndex = 'wintaskcrossingguard-events'
     }
 
+    $genericHttpEnabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_ENABLED' -Default $false) -Default $false
+    $genericHttpAllowInsecureTls = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_ALLOW_INSECURE_TLS' -Default $false) -Default $false
+    $genericHttpMethod = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_METHOD' -Default 'Post')
+    if ([string]::IsNullOrWhiteSpace($genericHttpMethod)) { $genericHttpMethod = 'Post' }
+    $allowedGenericHttpMethods = @('Post', 'Put', 'Patch')
+    $matchedGenericHttpMethod = @($allowedGenericHttpMethods | Where-Object { $_ -ieq $genericHttpMethod.Trim() } | Select-Object -First 1)
+    if ($matchedGenericHttpMethod.Count -eq 0) {
+        throw "Invalid WTCG_GENERIC_HTTP_METHOD value '$genericHttpMethod'. Expected one of: $($allowedGenericHttpMethods -join ', ')."
+    }
+    $genericHttpMethod = [string]$matchedGenericHttpMethod[0]
+
+    $genericHttpFormat = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_FORMAT' -Default 'ndjson')
+    if ([string]::IsNullOrWhiteSpace($genericHttpFormat)) { $genericHttpFormat = 'ndjson' }
+    $allowedGenericHttpFormats = @('ndjson', 'jsonArray', 'raw')
+    $matchedGenericHttpFormat = @($allowedGenericHttpFormats | Where-Object { $_ -ieq $genericHttpFormat.Trim() } | Select-Object -First 1)
+    if ($matchedGenericHttpFormat.Count -eq 0) {
+        throw "Invalid WTCG_GENERIC_HTTP_FORMAT value '$genericHttpFormat'. Expected one of: $($allowedGenericHttpFormats -join ', ')."
+    }
+    $genericHttpFormat = [string]$matchedGenericHttpFormat[0]
+
+    $genericHttpDefaultContentType = if ($genericHttpFormat -ieq 'ndjson') { 'application/x-ndjson' } else { 'application/json; charset=utf-8' }
+    $genericHttpContentType = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_CONTENT_TYPE' -Default $genericHttpDefaultContentType)
+    if ([string]::IsNullOrWhiteSpace($genericHttpContentType)) { $genericHttpContentType = $genericHttpDefaultContentType }
+
+    $genericHttpHeaders = ConvertTo-WtcgStringList -Value (Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_HEADERS' -Default '') -Default @()
+
     [pscustomobject]@{
         Enabled           = $enabled
         EnvPath           = $EnvPath
@@ -3666,6 +3692,17 @@ function Get-WtcgTelemetrySettings {
             Username         = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_USERNAME' -Default '')
             Password         = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_ELASTICSEARCH_PASSWORD' -Default '')
             AllowInsecureTls = $elasticAllowInsecureTls
+        }
+        GenericHttp       = [pscustomobject]@{
+            Enabled          = $genericHttpEnabled
+            Uri              = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_URI' -Default '')
+            Method           = $genericHttpMethod
+            Format           = $genericHttpFormat
+            ContentType      = $genericHttpContentType
+            Headers          = @($genericHttpHeaders)
+            AuthHeaderName   = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_AUTH_HEADER_NAME' -Default '')
+            AuthHeaderValue  = [string](Get-WtcgEnvValue -Values $envValues -Name 'WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE' -Default '')
+            AllowInsecureTls = $genericHttpAllowInsecureTls
         }
     }
 }
@@ -3770,6 +3807,319 @@ function ConvertTo-WtcgElasticBulkPayload {
 
         return (($lines -join "`n") + "`n")
     }
+}
+
+function ConvertTo-WtcgHttpHeaderDictionary {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Headers,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $AuthHeaderName,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $AuthHeaderValue
+    )
+
+    $dictionary = @{}
+
+    if ($Headers -is [hashtable]) {
+        foreach ($key in $Headers.Keys) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$key)) {
+                $dictionary[[string]$key] = [string]$Headers[$key]
+            }
+        }
+    }
+    elseif ($null -ne $Headers) {
+        foreach ($entry in @($Headers)) {
+            if ([string]::IsNullOrWhiteSpace([string]$entry)) {
+                continue
+            }
+
+            $parts = ([string]$entry) -split '=', 2
+            if ($parts.Count -ne 2 -or [string]::IsNullOrWhiteSpace($parts[0])) {
+                throw "Invalid HTTP header entry '$entry'. Expected Name=Value."
+            }
+
+            $dictionary[$parts[0].Trim()] = $parts[1].Trim()
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($AuthHeaderName) -and -not [string]::IsNullOrWhiteSpace($AuthHeaderValue)) {
+        $dictionary[$AuthHeaderName.Trim()] = $AuthHeaderValue
+    }
+
+    $dictionary
+}
+
+function Invoke-WtcgTelemetryRestMethod {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Uri,
+
+        [Parameter()]
+        [ValidateSet('Post', 'Put', 'Patch')]
+        [string] $Method = 'Post',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Body,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $ContentType = 'application/json; charset=utf-8',
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $Headers,
+
+        [Parameter()]
+        [ValidateRange(1, 86400)]
+        [int] $TimeoutSeconds = 15,
+
+        [Parameter()]
+        [switch] $AllowInsecureTls
+    )
+
+    $invokeParameters = @{
+        Uri        = $Uri
+        Method     = $Method
+        ContentType = $ContentType
+        Body       = $Body
+        TimeoutSec = $TimeoutSeconds
+    }
+
+    if ($null -ne $Headers -and $Headers.Count -gt 0) {
+        $invokeParameters.Headers = $Headers
+    }
+
+    if ($AllowInsecureTls -and $PSVersionTable.PSVersion.Major -ge 7) {
+        $invokeParameters.SkipCertificateCheck = $true
+    }
+
+    Invoke-RestMethod @invokeParameters
+}
+
+function Get-WtcgHttpErrorStatusCode {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $ErrorRecord
+    )
+
+    $response = Get-WtcgObjectPropertyValue -InputObject (Get-WtcgObjectPropertyValue -InputObject $ErrorRecord -Name 'Exception') -Name 'Response'
+    if ($null -eq $response) {
+        return $null
+    }
+
+    $statusCode = Get-WtcgObjectPropertyValue -InputObject $response -Name 'StatusCode'
+    if ($null -eq $statusCode) {
+        return $null
+    }
+
+    try { return [int]$statusCode }
+    catch { return $null }
+}
+
+function Test-WtcgTransientHttpStatusCode {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $StatusCode
+    )
+
+    if ($null -eq $StatusCode) { return $true }
+    $numericStatusCode = [int]$StatusCode
+    return ($numericStatusCode -eq 408 -or $numericStatusCode -eq 429 -or ($numericStatusCode -ge 500 -and $numericStatusCode -le 599))
+}
+
+function Invoke-WtcgHttpRequestWithRetry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Uri,
+
+        [Parameter()]
+        [ValidateSet('Post', 'Put', 'Patch')]
+        [string] $Method = 'Post',
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Body,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $ContentType = 'application/json; charset=utf-8',
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $Headers,
+
+        [Parameter()]
+        [ValidateRange(1, 86400)]
+        [int] $TimeoutSeconds = 15,
+
+        [Parameter()]
+        [ValidateRange(0, 100)]
+        [int] $RetryCount = 2,
+
+        [Parameter()]
+        [ValidateRange(0, 86400)]
+        [int] $RetryDelaySeconds = 2,
+
+        [Parameter()]
+        [switch] $AllowInsecureTls,
+
+        [Parameter()]
+        [switch] $FailOnError
+    )
+
+    $attempt = 0
+    $maxAttempts = $RetryCount + 1
+    $lastErrorMessage = $null
+    $lastStatusCode = $null
+
+    while ($attempt -lt $maxAttempts) {
+        $attempt++
+        try {
+            $response = Invoke-WtcgTelemetryRestMethod `
+                -Uri $Uri `
+                -Method $Method `
+                -Body $Body `
+                -ContentType $ContentType `
+                -Headers $Headers `
+                -TimeoutSeconds $TimeoutSeconds `
+                -AllowInsecureTls:$AllowInsecureTls
+
+            return [pscustomobject]@{
+                Sent             = $true
+                Uri              = $Uri
+                Method           = $Method
+                ContentType      = $ContentType
+                AttemptCount     = $attempt
+                TimeoutSeconds   = $TimeoutSeconds
+                RetryCount       = $RetryCount
+                RetryDelaySeconds = $RetryDelaySeconds
+                AllowInsecureTls = [bool]$AllowInsecureTls
+                HeaderNames      = if ($null -ne $Headers) { @($Headers.Keys) } else { @() }
+                Response         = $response
+                Error            = $null
+                StatusCode       = $null
+            }
+        }
+        catch {
+            $lastErrorMessage = $_.Exception.Message
+            $lastStatusCode = Get-WtcgHttpErrorStatusCode -ErrorRecord $_
+            $shouldRetry = ($attempt -lt $maxAttempts -and (Test-WtcgTransientHttpStatusCode -StatusCode $lastStatusCode))
+
+            if ($shouldRetry) {
+                if ($RetryDelaySeconds -gt 0) {
+                    Start-Sleep -Seconds $RetryDelaySeconds
+                }
+                continue
+            }
+
+            if ($FailOnError) {
+                throw
+            }
+
+            return [pscustomobject]@{
+                Sent             = $false
+                Uri              = $Uri
+                Method           = $Method
+                ContentType      = $ContentType
+                AttemptCount     = $attempt
+                TimeoutSeconds   = $TimeoutSeconds
+                RetryCount       = $RetryCount
+                RetryDelaySeconds = $RetryDelaySeconds
+                AllowInsecureTls = [bool]$AllowInsecureTls
+                HeaderNames      = if ($null -ne $Headers) { @($Headers.Keys) } else { @() }
+                Response         = $null
+                Error            = $lastErrorMessage
+                StatusCode       = $lastStatusCode
+            }
+        }
+    }
+}
+
+function Send-WtcgGenericHttpPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Uri,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Body,
+
+        [Parameter()]
+        [ValidateSet('Post', 'Put', 'Patch')]
+        [string] $Method = 'Post',
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $ContentType = 'application/json; charset=utf-8',
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Headers,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $AuthHeaderName,
+
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $AuthHeaderValue,
+
+        [Parameter()]
+        [ValidateRange(1, 86400)]
+        [int] $TimeoutSeconds = 15,
+
+        [Parameter()]
+        [ValidateRange(0, 100)]
+        [int] $RetryCount = 2,
+
+        [Parameter()]
+        [ValidateRange(0, 86400)]
+        [int] $RetryDelaySeconds = 2,
+
+        [Parameter()]
+        [switch] $AllowInsecureTls,
+
+        [Parameter()]
+        [switch] $FailOnError
+    )
+
+    $resolvedHeaders = ConvertTo-WtcgHttpHeaderDictionary -Headers $Headers -AuthHeaderName $AuthHeaderName -AuthHeaderValue $AuthHeaderValue
+
+    Invoke-WtcgHttpRequestWithRetry `
+        -Uri $Uri `
+        -Method $Method `
+        -Body $Body `
+        -ContentType $ContentType `
+        -Headers $resolvedHeaders `
+        -TimeoutSeconds $TimeoutSeconds `
+        -RetryCount $RetryCount `
+        -RetryDelaySeconds $RetryDelaySeconds `
+        -AllowInsecureTls:$AllowInsecureTls `
+        -FailOnError:$FailOnError
 }
 
 function ConvertTo-WtcgWebhookTargetSettings {

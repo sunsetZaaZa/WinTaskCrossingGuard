@@ -173,3 +173,178 @@ WTCG_ELASTICSEARCH_API_KEY=super-secret-key
         }
     }
 }
+
+Describe 'Telemetry export Stage 2 generic HTTP sender' {
+    BeforeEach {
+        $script:TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+        New-Item -ItemType Directory -Path $script:TempDir | Out-Null
+        InModuleScope WinTaskCrossingGuard -Parameters @{ TempDir = $script:TempDir } {
+            param($TempDir)
+            $script:TempDir = $TempDir
+        }
+    }
+
+    AfterEach {
+        Remove-Item -Path $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'imports generic HTTP telemetry settings from .env' {
+        InModuleScope WinTaskCrossingGuard {
+            $envPath = Join-Path $script:TempDir '.env'
+@'
+WTCG_GENERIC_HTTP_ENABLED=true
+WTCG_GENERIC_HTTP_URI=https://collector.example.com/events
+WTCG_GENERIC_HTTP_METHOD=Patch
+WTCG_GENERIC_HTTP_FORMAT=jsonArray
+WTCG_GENERIC_HTTP_CONTENT_TYPE=application/json
+WTCG_GENERIC_HTTP_HEADERS=X-WTCG-Source=WinTaskCrossingGuard;X-Env=prod
+WTCG_GENERIC_HTTP_AUTH_HEADER_NAME=Authorization
+WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE=Bearer secret-token
+WTCG_GENERIC_HTTP_ALLOW_INSECURE_TLS=true
+'@ | Set-Content -Path $envPath -Encoding utf8
+
+            $settings = Get-WtcgTelemetrySettings -EnvPath $envPath
+
+            $settings.GenericHttp.Enabled | Should -BeTrue
+            $settings.GenericHttp.Uri | Should -Be 'https://collector.example.com/events'
+            $settings.GenericHttp.Method | Should -Be 'Patch'
+            $settings.GenericHttp.Format | Should -Be 'jsonArray'
+            $settings.GenericHttp.ContentType | Should -Be 'application/json'
+            $settings.GenericHttp.Headers | Should -Contain 'X-WTCG-Source=WinTaskCrossingGuard'
+            $settings.GenericHttp.Headers | Should -Contain 'X-Env=prod'
+            $settings.GenericHttp.AuthHeaderName | Should -Be 'Authorization'
+            $settings.GenericHttp.AuthHeaderValue | Should -Be 'Bearer secret-token'
+            $settings.GenericHttp.AllowInsecureTls | Should -BeTrue
+        }
+    }
+
+    It 'builds HTTP headers from static entries and an auth header' {
+        InModuleScope WinTaskCrossingGuard {
+            $headers = ConvertTo-WtcgHttpHeaderDictionary `
+                -Headers @('X-WTCG-Source=WinTaskCrossingGuard', 'X-Environment=Test') `
+                -AuthHeaderName 'Authorization' `
+                -AuthHeaderValue 'Bearer secret-token'
+
+            $headers['X-WTCG-Source'] | Should -Be 'WinTaskCrossingGuard'
+            $headers['X-Environment'] | Should -Be 'Test'
+            $headers['Authorization'] | Should -Be 'Bearer secret-token'
+        }
+    }
+
+    It 'sends a generic HTTP payload with timeout headers and TLS option without returning header secrets' {
+        InModuleScope WinTaskCrossingGuard {
+            Mock Invoke-WtcgTelemetryRestMethod {
+                [pscustomobject]@{ ok = $true }
+            }
+
+            $result = Send-WtcgGenericHttpPayload `
+                -Uri 'https://collector.example.com/events' `
+                -Method 'Put' `
+                -Body '{"ok":true}' `
+                -ContentType 'application/json' `
+                -Headers @('X-WTCG-Source=WinTaskCrossingGuard') `
+                -AuthHeaderName 'Authorization' `
+                -AuthHeaderValue 'Bearer secret-token' `
+                -TimeoutSeconds 22 `
+                -RetryCount 0 `
+                -RetryDelaySeconds 0 `
+                -AllowInsecureTls
+
+            $result.Sent | Should -BeTrue
+            $result.Method | Should -Be 'Put'
+            $result.TimeoutSeconds | Should -Be 22
+            $result.AllowInsecureTls | Should -BeTrue
+            $result.HeaderNames | Should -Contain 'Authorization'
+            $result | ConvertTo-Json -Depth 10 | Should -Not -Match 'secret-token'
+
+            Should -Invoke Invoke-WtcgTelemetryRestMethod -Times 1 -ParameterFilter {
+                $Uri -eq 'https://collector.example.com/events' -and
+                $Method -eq 'Put' -and
+                $ContentType -eq 'application/json' -and
+                $TimeoutSeconds -eq 22 -and
+                $AllowInsecureTls -and
+                $Headers['Authorization'] -eq 'Bearer secret-token' -and
+                $Headers['X-WTCG-Source'] -eq 'WinTaskCrossingGuard'
+            }
+        }
+    }
+
+    It 'retries transient HTTP sender failures before succeeding' {
+        InModuleScope WinTaskCrossingGuard {
+            $script:Attempts = 0
+            Mock Start-Sleep {}
+            Mock Invoke-WtcgTelemetryRestMethod {
+                $script:Attempts++
+                if ($script:Attempts -lt 3) {
+                    throw 'temporary collector outage'
+                }
+                [pscustomobject]@{ ok = $true }
+            }
+
+            $result = Invoke-WtcgHttpRequestWithRetry `
+                -Uri 'https://collector.example.com/events' `
+                -Body 'payload' `
+                -RetryCount 2 `
+                -RetryDelaySeconds 9
+
+            $result.Sent | Should -BeTrue
+            $result.AttemptCount | Should -Be 3
+            Should -Invoke Invoke-WtcgTelemetryRestMethod -Times 3
+            Should -Invoke Start-Sleep -Times 2 -ParameterFilter { $Seconds -eq 9 }
+        }
+    }
+
+    It 'returns a sanitized failure result when sending fails and fail-on-error is disabled' {
+        InModuleScope WinTaskCrossingGuard {
+            Mock Start-Sleep {}
+            Mock Invoke-WtcgTelemetryRestMethod { throw 'collector down' }
+
+            $result = Send-WtcgGenericHttpPayload `
+                -Uri 'https://collector.example.com/events' `
+                -Body 'payload' `
+                -Headers @('X-Secret=super-secret-header') `
+                -RetryCount 1 `
+                -RetryDelaySeconds 0
+
+            $result.Sent | Should -BeFalse
+            $result.AttemptCount | Should -Be 2
+            $result.Error | Should -Match 'collector down'
+            $result.HeaderNames | Should -Contain 'X-Secret'
+            $result | ConvertTo-Json -Depth 10 | Should -Not -Match 'super-secret-header'
+        }
+    }
+
+    It 'throws when sending fails and fail-on-error is enabled' {
+        InModuleScope WinTaskCrossingGuard {
+            Mock Start-Sleep {}
+            Mock Invoke-WtcgTelemetryRestMethod { throw 'collector down' }
+
+            {
+                Send-WtcgGenericHttpPayload `
+                    -Uri 'https://collector.example.com/events' `
+                    -Body 'payload' `
+                    -RetryCount 0 `
+                    -RetryDelaySeconds 0 `
+                    -FailOnError
+            } | Should -Throw '*collector down*'
+        }
+    }
+
+    It 'passes SkipCertificateCheck to Invoke-RestMethod when insecure TLS is allowed on PowerShell 7+' {
+        InModuleScope WinTaskCrossingGuard {
+            Mock Invoke-RestMethod {
+                [pscustomobject]@{ ok = $true }
+            }
+
+            Invoke-WtcgTelemetryRestMethod `
+                -Uri 'https://collector.example.com/events' `
+                -Body 'payload' `
+                -AllowInsecureTls | Out-Null
+
+            Should -Invoke Invoke-RestMethod -Times 1 -ParameterFilter {
+                $Uri -eq 'https://collector.example.com/events' -and
+                $SkipCertificateCheck -eq $true
+            }
+        }
+    }
+}
