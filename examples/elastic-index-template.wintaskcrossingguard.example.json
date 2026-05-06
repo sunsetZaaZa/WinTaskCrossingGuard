@@ -1,0 +1,39 @@
+{
+  "index_patterns": [
+    "wintaskcrossingguard-events*",
+    "logs-wintaskcrossingguard-*"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "timestampUtc": { "type": "date" },
+        "timestampLocal": { "type": "date" },
+        "schemaVersion": { "type": "keyword" },
+        "source": { "type": "keyword" },
+        "product": { "type": "keyword" },
+        "action": { "type": "keyword" },
+        "operation": { "type": "keyword" },
+        "status": { "type": "keyword" },
+        "runId": { "type": "keyword" },
+        "runFolderPath": { "type": "keyword", "ignore_above": 2048 },
+        "hostName": { "type": "keyword" },
+        "userName": { "type": "keyword" },
+        "processId": { "type": "integer" },
+        "details": {
+          "type": "object",
+          "dynamic": true
+        }
+      }
+    }
+  },
+  "priority": 500,
+  "_meta": {
+    "description": "Starter index template for WinTaskCrossingGuard JSONL telemetry events. Validate and tune for your Elastic/OpenSearch version before production use."
+  }
+}

@@ -522,9 +522,16 @@ Scheduled re-enable workflows pass the generated JSONL path, `-RunId`, and `-Run
 
 
 
-## Telemetry export Stage 1, 2, and 3: payloads, sender, and workflow export
+## Telemetry export: secure Elastic/OpenSearch and generic HTTP examples
 
-Stage 1 adds configuration parsing and payload generation for Elastic/OpenSearch-style ingestion. Stage 2 adds a generic HTTP sender with timeout, retry, custom headers, and optional insecure-TLS support. Stage 3 wires export into workflows after JSONL writes and stores telemetry export reports in the central run folder. JSONL remains the local source of truth.
+Telemetry export uses the local JSONL stream as the source of truth. Workflow operations write JSONL first, then export matching events to configured telemetry sinks. Export results are written back into the central run folder:
+
+```text
+./runs/<runId>/reports/telemetry-export-report.json
+./runs/<runId>/errors/telemetry-export-error.json
+```
+
+The implementation currently includes configuration parsing, Elastic/OpenSearch bulk payload building, generic HTTP sending with retry/timeout/header/TLS options, and workflow-level export after JSONL writes.
 
 Core functions:
 
@@ -540,11 +547,15 @@ Invoke-WtcgTelemetryExportForJsonl
 Save-WtcgTelemetryExportReport
 ```
 
-Example `.env` settings:
+### Secure `.env` examples
+
+Keep telemetry secrets in `.env` or your deployment secret store. Do not commit live API keys, bearer tokens, basic-auth passwords, collector tokens, or webhook URLs. Export reports deliberately record header names, sink names, status, and counts, but not secret header values.
+
+Elastic/OpenSearch bulk sink with API key authentication:
 
 ```dotenv
-WTCG_TELEMETRY_ENABLED=false
-WTCG_TELEMETRY_EVENTS=result,error,notification,disable,re-enable,scheduled-reenable
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_EVENTS=disable,re-enable,scheduled-reenable,error,notification
 WTCG_TELEMETRY_FAIL_ON_ERROR=false
 WTCG_TELEMETRY_TIMEOUT_SECONDS=15
 WTCG_TELEMETRY_BATCH_SIZE=100
@@ -552,28 +563,54 @@ WTCG_TELEMETRY_RETRY_COUNT=2
 WTCG_TELEMETRY_RETRY_DELAY_SECONDS=2
 WTCG_TELEMETRY_SINKS=elasticsearch
 
-WTCG_ELASTICSEARCH_ENABLED=false
+WTCG_ELASTICSEARCH_ENABLED=true
 WTCG_ELASTICSEARCH_URI=https://elastic.example.com:9200
 WTCG_ELASTICSEARCH_INDEX=wintaskcrossingguard-events
 WTCG_ELASTICSEARCH_DATA_STREAM=false
-WTCG_ELASTICSEARCH_AUTH_TYPE=None
-WTCG_ELASTICSEARCH_API_KEY=
-WTCG_ELASTICSEARCH_USERNAME=
-WTCG_ELASTICSEARCH_PASSWORD=
+WTCG_ELASTICSEARCH_AUTH_TYPE=ApiKey
+WTCG_ELASTICSEARCH_API_KEY=<store in secret manager or local .env only>
 WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=false
+```
 
-WTCG_GENERIC_HTTP_ENABLED=false
+Elastic data-stream style sink. Data streams should use `create` bulk actions, which `ConvertTo-WtcgElasticBulkPayload -DataStream` does automatically:
+
+```dotenv
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=elasticsearch
+WTCG_ELASTICSEARCH_ENABLED=true
+WTCG_ELASTICSEARCH_URI=https://elastic.example.com:9200
+WTCG_ELASTICSEARCH_INDEX=logs-wintaskcrossingguard-default
+WTCG_ELASTICSEARCH_DATA_STREAM=true
+WTCG_ELASTICSEARCH_AUTH_TYPE=ApiKey
+WTCG_ELASTICSEARCH_API_KEY=<secret>
+```
+
+Generic NDJSON collector endpoint:
+
+```dotenv
+WTCG_TELEMETRY_ENABLED=true
+WTCG_TELEMETRY_SINKS=genericHttp
+WTCG_GENERIC_HTTP_ENABLED=true
 WTCG_GENERIC_HTTP_URI=https://collector.example.com/events
 WTCG_GENERIC_HTTP_METHOD=Post
 WTCG_GENERIC_HTTP_FORMAT=ndjson
 WTCG_GENERIC_HTTP_CONTENT_TYPE=application/x-ndjson
-WTCG_GENERIC_HTTP_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
+WTCG_GENERIC_HTTP_HEADERS=X-WTCG-Source=WinTaskCrossingGuard;X-Environment=prod
 WTCG_GENERIC_HTTP_AUTH_HEADER_NAME=Authorization
-WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE=
+WTCG_GENERIC_HTTP_AUTH_HEADER_VALUE=Bearer <secret>
 WTCG_GENERIC_HTTP_ALLOW_INSECURE_TLS=false
 ```
 
-Build a bulk payload from a run JSONL file:
+Local lab-only TLS bypass:
+
+```dotenv
+WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=true
+WTCG_GENERIC_HTTP_ALLOW_INSECURE_TLS=true
+```
+
+Use those only for local labs with self-signed certificates. Production collectors should use valid TLS and leave both options set to `false`.
+
+### Build and inspect an Elastic bulk payload
 
 ```powershell
 $settings = Get-WtcgTelemetrySettings -EnvPath .\.env
@@ -581,9 +618,28 @@ $payload = ConvertTo-WtcgElasticBulkPayload `
   -JsonlPath .\runs\<runId>\steamablelogs\wintaskcrossingguard-events.jsonl `
   -Index $settings.Elasticsearch.Index `
   -DataStream:$settings.Elasticsearch.DataStream
+
+# Preview the first few NDJSON lines without sending anything.
+$payload -split "`n" | Select-Object -First 6
 ```
 
-Send a payload through the generic HTTP sender:
+Generated Elastic/OpenSearch bulk payloads:
+
+```text
+{"index":{"_index":"wintaskcrossingguard-events"}}
+{"schemaVersion":"1.0","source":"WinTaskCrossingGuard",...}
+```
+
+When `-DataStream` is used, the action metadata switches to `create`:
+
+```text
+{"create":{"_index":"logs-wintaskcrossingguard-default"}}
+{"schemaVersion":"1.0","source":"WinTaskCrossingGuard",...}
+```
+
+Bulk payloads always end with a final newline, which Elastic/OpenSearch bulk endpoints expect for NDJSON bodies.
+
+### Generic HTTP sender example
 
 ```powershell
 $result = Send-WtcgGenericHttpPayload `
@@ -601,7 +657,77 @@ $result = Send-WtcgGenericHttpPayload `
   -FailOnError:$settings.FailOnError
 ```
 
-When `-DataStream` is used, the bulk action metadata uses `create`. Otherwise it uses `index` by default. Generated payloads always end with a final newline and do not include configured API keys, passwords, bearer tokens, or custom auth header values. Sender results include header names but not header values. When telemetry is enabled, workflow-level exports write `reports/telemetry-export-report.json` for successful or partially successful exports and `errors/telemetry-export-error.json` if export processing itself fails. Telemetry export is skipped by default because `WTCG_TELEMETRY_ENABLED=false`.
+### Suggested Elastic/OpenSearch index template
+
+A starter template is shipped at:
+
+```text
+examples/elastic-index-template.wintaskcrossingguard.example.json
+```
+
+It maps common fields such as `@timestamp`, `timestampUtc`, `source`, `action`, `operation`, `status`, `runId`, `hostName`, `userName`, and `details.*`. The template intentionally keeps `details` flexible because different workflow actions carry different detail fields.
+
+Install it with a privileged account before enabling export:
+
+```powershell
+$apiKey = '<secret>'
+Invoke-RestMethod `
+  -Method Put `
+  -Uri 'https://elastic.example.com:9200/_index_template/wintaskcrossingguard-events' `
+  -Headers @{ Authorization = "ApiKey $apiKey" } `
+  -ContentType 'application/json' `
+  -InFile .\examples\elastic-index-template.wintaskcrossingguard.example.json
+```
+
+For OpenSearch, the same template shape is a useful starting point, but validate it against your OpenSearch version and index-management policy before production use.
+
+### Failure-mode notes
+
+Default behavior is best effort:
+
+```dotenv
+WTCG_TELEMETRY_FAIL_ON_ERROR=false
+```
+
+In this mode, task disable/restore workflows continue even if telemetry export fails. Export failures are recorded in the run folder so the local audit trail stays complete.
+
+Strict mode:
+
+```dotenv
+WTCG_TELEMETRY_FAIL_ON_ERROR=true
+```
+
+In strict mode, telemetry failures can fail the workflow. Use this only when enterprise policy requires external telemetry receipt to be part of the operation’s success criteria. For most maintenance windows, leave strict mode disabled so an observability outage does not block task restoration.
+
+Retry behavior:
+
+```dotenv
+WTCG_TELEMETRY_RETRY_COUNT=2
+WTCG_TELEMETRY_RETRY_DELAY_SECONDS=2
+```
+
+Transient HTTP statuses such as throttling or server-side failures are retried by the generic sender. Final results include attempt counts, status code, sink name, and sanitized destination information.
+
+Security reminders:
+
+```text
+Do not put credentials in URLs.
+Do not commit .env with live secrets.
+Do not paste telemetry API keys into issue trackers or PR logs.
+Rotate API keys or collector tokens if they appear in console logs, reports, commits, or screenshots.
+Use least-privilege API keys that can only write to the WinTaskCrossingGuard target index/data stream.
+```
+
+Telemetry export is skipped by default because `WTCG_TELEMETRY_ENABLED=false`.
+
+Helpful references:
+
+```text
+Elasticsearch Bulk API: https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-bulk
+Elasticsearch API key authentication: https://www.elastic.co/docs/api/doc/elasticsearch/authentication
+OpenSearch Bulk API: https://docs.opensearch.org/latest/api-reference/document-apis/bulk/
+OpenSearch index templates: https://docs.opensearch.org/latest/im-plugin/index-templates/
+```
 
 ## Windows Event Log audit trail
 
