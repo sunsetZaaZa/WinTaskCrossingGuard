@@ -39,9 +39,31 @@ $config.Run.PassThru = $true
 $config.Output.Verbosity = 'Detailed'
 
 $config.CodeCoverage.Enabled = $true
-$config.CodeCoverage.Path = @(
-    (Join-Path $PSScriptRoot '..\WinTaskCrossingGuard\WinTaskCrossingGuard.psm1')
+$moduleSourceRoot = Join-Path $PSScriptRoot '..\WinTaskCrossingGuard'
+$moduleSourceFiles = @(
+    Join-Path $moduleSourceRoot 'WinTaskCrossingGuard.psm1'
+) + @(
+    Get-ChildItem -LiteralPath $moduleSourceRoot -Directory |
+        Where-Object {
+            $_.Name -in @(
+                'Private',
+                'RunState',
+                'Selection',
+                'Scheduling',
+                'Logging',
+                'Telemetry',
+                'Notifications',
+                'Public'
+            )
+        } |
+        ForEach-Object {
+            Get-ChildItem -LiteralPath $_.FullName -Filter '*.ps1' -File
+        } |
+        Sort-Object -Property FullName |
+        Select-Object -ExpandProperty FullName
 )
+
+$config.CodeCoverage.Path = $moduleSourceFiles
 $config.CodeCoverage.OutputFormat = 'JaCoCo'
 $config.CodeCoverage.OutputPath = Join-Path $OutputDirectory 'coverage.xml'
 

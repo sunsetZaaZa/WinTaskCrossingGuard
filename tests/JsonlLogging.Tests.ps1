@@ -26,11 +26,11 @@ Describe 'SIEM-friendly JSONL logging' {
         Remove-Item -Path $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    It 'resolves an empty JSONL log path to the steamablelogs folder' {
+    It 'resolves an empty JSONL log path to the streamablelogs folder' {
         InModuleScope WinTaskCrossingGuard {
             $result = Resolve-WtcgJsonlLogPath -Path '' -BaseDirectory $script:TempDir
 
-            Split-Path -Parent $result | Should -Be (Join-Path $script:TempDir 'steamablelogs')
+            Split-Path -Parent $result | Should -Be (Join-Path $script:TempDir 'streamablelogs')
             Split-Path -Leaf $result | Should -Match '^wintaskcrossingguard-events-\d{8}-\d{6}\.jsonl$'
             $result | Should -Not -Match '\\logs\\'
         }
@@ -171,7 +171,7 @@ Describe 'SIEM-friendly JSONL logging' {
     It 'cleans up old JSONL files when requested with a JSONL filter' {
         InModuleScope WinTaskCrossingGuard {
             $envPath = Join-Path $script:TempDir '.env'
-            $jsonlDir = Join-Path $script:TempDir 'steamablelogs'
+            $jsonlDir = Join-Path $script:TempDir 'streamablelogs'
             New-Item -ItemType Directory -Path $jsonlDir -Force | Out-Null
             'LOG_RETENTION=7' | Set-Content -Path $envPath -Encoding utf8
 

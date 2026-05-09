@@ -78,7 +78,7 @@
         <results>
           <test-suite type="TestFixture" name="SIEM-friendly JSONL logging" executed="True" result="Success" success="True" time="0.376" asserts="0" description="SIEM-friendly JSONL logging">
             <results>
-              <test-case description="resolves an empty JSONL log path to the steamablelogs folder" name="SIEM-friendly JSONL logging.resolves an empty JSONL log path to the steamablelogs folder" time="0.0141" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="resolves an empty JSONL log path to the streamablelogs folder" name="SIEM-friendly JSONL logging.resolves an empty JSONL log path to the streamablelogs folder" time="0.0141" asserts="0" success="True" result="Success" executed="True" />
               <test-case description="writes disable actions as newline-delimited JSON events" name="SIEM-friendly JSONL logging.writes disable actions as newline-delimited JSON events" time="0.1552" asserts="0" success="True" result="Success" executed="True" />
               <test-case description="writes re-enable actions as JSONL events" name="SIEM-friendly JSONL logging.writes re-enable actions as JSONL events" time="0.057" asserts="0" success="True" result="Success" executed="True" />
               <test-case description="writes error actions as JSONL events" name="SIEM-friendly JSONL logging.writes error actions as JSONL events" time="0.0418" asserts="0" success="True" result="Success" executed="True" />

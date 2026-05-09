@@ -14,7 +14,7 @@ It shows how to:
 6. Re-enable those tasks
 7. Start those tasks immediately
 
-Place this file next to WinTaskCrossingGuard.psm1.
+Place this file in the repository root next to the WinTaskCrossingGuard module folder.
 Run with:
 
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Example-WinTaskCrossingGuardWorkflow.ps1

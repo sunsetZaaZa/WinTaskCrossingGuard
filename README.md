@@ -4,7 +4,8 @@ PowerShell 7 script suite for finding, disabling, enabling, and immediately star
 
 ## Files
 
-- `WinTaskCrossingGuard.psm1` - reusable functions.
+- `WinTaskCrossingGuard/WinTaskCrossingGuard.psd1` - PowerShell module manifest.
+- `WinTaskCrossingGuard/WinTaskCrossingGuard.psm1` - thin module loader that dot-sources categorized function files under `Public/`, `Private/`, `Logging/`, `Telemetry/`, `Notifications/`, `Scheduling/`, `Selection/`, and `RunState/`.
 - `Find-TasksInWindow.ps1` - returns task identities for tasks inside a time window.
 - `Disable-TasksInWindow.ps1` - finds matching tasks, returns identities when requested, writes a manifest, and disables them.
 - `Enable-TaskIdentities.ps1` - enables tasks from piped identities or an identity JSON file.
@@ -196,7 +197,7 @@ $disabledTasks | .\Start-TaskIdentities.ps1
 ## Direct module usage
 
 ```powershell
-Import-Module .\WinTaskCrossingGuard.psm1 -Force
+Import-Module .\WinTaskCrossingGuard\WinTaskCrossingGuard.psd1 -Force
 
 $window = Resolve-WtcgWindow -Start "22:00" -End "06:00"
 
@@ -302,7 +303,7 @@ Create or update a separate Windows Scheduled Task that restores only tasks disa
 Example:
 
 ```powershell
-Import-Module .\WinTaskCrossingGuard.psm1 -Force
+Import-Module .\WinTaskCrossingGuard\WinTaskCrossingGuard.psd1 -Force
 
 Disable-WtcgTasksInWindowAndScheduleReenable `
   -Start '22:00' `
@@ -342,7 +343,7 @@ Default run layout:
   run-info.json
   logs/
     disabled-tasks.xml
-  steamablelogs/
+  streamablelogs/
     wintaskcrossingguard-events.jsonl
   manifests/
     rollback-manifest.json
@@ -388,13 +389,7 @@ Run them locally with the same coverage gate used by CI:
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardTests.ps1 -MinimumCoveragePercent 90
 ```
 
-The test runner measures coverage for:
-
-```text
-WinTaskCrossingGuard.psm1
-```
-
-and fails when coverage is below 90%.
+The test runner measures coverage for the module loader plus the split function files under `WinTaskCrossingGuard\`. It fails when coverage is below 90%.
 
 
 ## XML disable log
@@ -463,10 +458,10 @@ Default XML log path format inside a run:
 
 The module also writes newline-delimited JSON events for SIEM and observability tools such as Splunk, Sentinel, Elastic, and Datadog. JSONL output complements the XML log instead of replacing it.
 
-JSONL events are written to the central run folder's `steamablelogs/` directory by default, not the root `./logs/` folder:
+JSONL events are written to the central run folder's `streamablelogs/` directory by default, not the root `./logs/` folder:
 
 ```text
-.\runs\<runId>\steamablelogs\wintaskcrossingguard-events.jsonl
+.\runs\<runId>\streamablelogs\wintaskcrossingguard-events.jsonl
 ```
 
 Core functions:
@@ -514,7 +509,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\Disable-TasksInWindow.ps1 `
   -End '06:00' `
   -SelectionPath .\task-selection.example.json `
   -XmlLogPath .\logs\disabled-tasks.xml `
-  -JsonlLogPath .\steamablelogs\disabled-tasks.jsonl
+  -JsonlLogPath .\streamablelogs\disabled-tasks.jsonl
 ```
 
 Scheduled re-enable workflows pass the generated JSONL path, `-RunId`, and `-RunFolderPath` into `Restore-TasksFromManifest.ps1` so disable, notification, and re-enable events can land in the same streamable event file and share the same correlation ID.
@@ -619,7 +614,7 @@ Use those only for local labs with self-signed certificates. Production collecto
 ```powershell
 $settings = Get-WtcgTelemetrySettings -EnvPath .\.env
 $payload = ConvertTo-WtcgElasticBulkPayload `
-  -JsonlPath .\runs\<runId>\steamablelogs\wintaskcrossingguard-events.jsonl `
+  -JsonlPath .\runs\<runId>\streamablelogs\wintaskcrossingguard-events.jsonl `
   -Index $settings.Elasticsearch.Index `
   -DataStream:$settings.Elasticsearch.DataStream
 
@@ -1156,7 +1151,7 @@ Pester and real Windows Task Scheduler execution must be run on a Windows machin
 
 The suite can clean up old XML logs and JSONL event streams at the end of successful execution.
 
-Create a `.env` file next to `WinTaskCrossingGuard.psm1`:
+Create a `.env` file in the repository root:
 
 ```text
 LOG_RETENTION=30
@@ -1165,7 +1160,7 @@ LOG_RETENTION=30
 Meaning:
 
 ```text
-Keep legacy XML log files in .\logs and legacy JSONL files in .\steamablelogs for 30 days. Central run folders under .\runs are not pruned by this legacy log-retention helper yet.
+Keep legacy XML log files in .\logs and legacy JSONL files in .\streamablelogs for 30 days. Central run folders under .\runs are not pruned by this legacy log-retention helper yet.
 Delete matching files older than 30 days at the end of execution.
 ```
 
@@ -1175,7 +1170,7 @@ Example file included:
 .env.example
 ```
 
-Cleanup applies to XML files in the suite `logs` folder and JSONL files in the suite `steamablelogs` folder when called with `-Filter '*.jsonl'`. Central run folders are intentionally left intact for audit review unless an operator removes them. Other file types are ignored.
+Cleanup applies to XML files in the suite `logs` folder and JSONL files in the suite `streamablelogs` folder when called with `-Filter '*.jsonl'`. Central run folders are intentionally left intact for audit review unless an operator removes them. Other file types are ignored.
 
 The cleanup function is:
 
@@ -1211,7 +1206,15 @@ WinTaskCrossingGuard is packaged as a PowerShell module.
 ```text
 WinTaskCrossingGuard/
   WinTaskCrossingGuard.psd1
-  WinTaskCrossingGuard.psm1
+  WinTaskCrossingGuard.psm1        # thin loader
+  Private/                         # shared internal helpers
+  Public/                          # high-level module commands
+  Logging/                         # XML, JSONL, event log, retention
+  Telemetry/                       # SIEM/export adapters and retry helpers
+  Notifications/                   # email and webhook notifications
+  Scheduling/                      # scheduled re-enable orchestration helpers
+  Selection/                       # task identity and selection policy logic
+  RunState/                        # run IDs, locks, reports, restore artifacts
 scripts/
   Disable-TasksInWindow.ps1
   Find-TasksInWindow.ps1
