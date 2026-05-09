@@ -50,7 +50,7 @@ Describe 'Central run folder and run ID' {
             $runInfo.Kind | Should -Be 'WinTaskCrossingGuard.RunInfo'
             $runInfo.RunId | Should -Be 'wtcg-pester-run'
             $runInfo.Operation | Should -Be 'PesterOperation'
-            $runInfo.Folders.steamablelogs | Should -Be $context.JsonlLogsPath
+            $runInfo.Folders.streamablelogs | Should -Be $context.JsonlLogsPath
         }
     }
 

@@ -412,7 +412,7 @@ $telemetryExportResult = Invoke-WtcgTelemetryExportForJsonl `
     -Operation 'DisableTasksInWindow'
 
 Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'logs') -WhatIf:$WhatIfPreference
-Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steamablelogs') -Filter '*.jsonl' -WhatIf:$WhatIfPreference
+Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'streamablelogs') -Filter '*.jsonl' -WhatIf:$WhatIfPreference
 
 if ($ReturnTaskIdentity -or $PassThru) {
     $rollbackIdentities

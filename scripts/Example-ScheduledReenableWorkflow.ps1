@@ -13,7 +13,7 @@ It shows how to:
 4. Save a rollback manifest with original state and discovery metadata
 5. Create or update a separate Windows Scheduled Task that restores only tasks disabled by this suite run
 
-Place this file next to WinTaskCrossingGuard.psm1.
+Place this file in the repository root next to the WinTaskCrossingGuard module folder.
 Run with:
 
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Example-ScheduledReenableWorkflow.ps1

@@ -47,13 +47,20 @@ Coverage artifacts are written to:
 
 ## Coverage target
 
-The runner measures coverage for:
+The runner measures coverage for the module loader plus all split source files under:
 
 ```text
-WinTaskCrossingGuard.psm1
+WinTaskCrossingGuard\Private
+WinTaskCrossingGuard\RunState
+WinTaskCrossingGuard\Selection
+WinTaskCrossingGuard\Scheduling
+WinTaskCrossingGuard\Logging
+WinTaskCrossingGuard\Telemetry
+WinTaskCrossingGuard\Notifications
+WinTaskCrossingGuard\Public
 ```
 
-That module contains the functional behavior:
+Those source files contain the functional behavior:
 
 - date/time parsing
 - overnight window logic
@@ -70,7 +77,7 @@ That module contains the functional behavior:
 - emergency latest restore artifact discovery
 - emergency restore wrapper smoke tests
 - XML disable log writing with run correlation fields
-- SIEM-friendly JSONL event writing under steamablelogs with run correlation fields
+- SIEM-friendly JSONL event writing under streamablelogs with run correlation fields
 - telemetry export settings import, Elastic bulk payload generation, generic HTTP sender behavior, workflow export reports, Datadog/Splunk HEC/Azure Monitor/Logstash adapter payloads, and docs/examples for secure collector configuration
 - Windows Event Log audit event formatting for the WinTaskCrossingGuard source
 - default XML log path resolution
