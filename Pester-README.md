@@ -119,3 +119,8 @@ No real scheduled tasks are required for the unit tests.
 - protected never-disable task policy
 
 - .env log retention cleanup behavior
+
+
+## Public export guard
+
+`tests/ModuleExports.Tests.ps1` verifies that the module manifest exports only functions stored in `WinTaskCrossingGuard/Public`. Helper functions in `Private`, `RunState`, `Selection`, `Scheduling`, `Logging`, `Telemetry`, and `Notifications` remain available to tests through `InModuleScope`, but are not part of the supported public command surface.

@@ -196,22 +196,31 @@ $disabledTasks | .\Start-TaskIdentities.ps1
 
 ## Direct module usage
 
+The module manifest exports only the supported public commands from `WinTaskCrossingGuard/Public`. Wrapper scripts continue to use private helpers internally, but those helpers are no longer part of the public API.
+
 ```powershell
 Import-Module .\WinTaskCrossingGuard\WinTaskCrossingGuard.psd1 -Force
 
-$window = Resolve-WtcgWindow -Start "22:00" -End "06:00"
-
-$selection = Import-WtcgTaskSelection -Path .\task-selection.example.json
-
 $tasks = Find-WtcgTaskInWindow `
-  -Start $window.Start `
-  -End $window.End `
-  -Selection $selection `
+  -Start ([datetime]'2026-04-26T22:00:00') `
+  -End ([datetime]'2026-04-27T06:00:00') `
+  -TaskPath '\MyCompany\' `
   -IdentityOnly
 
 $tasks | Disable-WtcgTaskIdentity
 $tasks | Enable-WtcgTaskIdentity
 $tasks | Start-WtcgTaskIdentity
+```
+
+Supported public commands:
+
+```text
+Disable-WtcgTaskIdentity
+Disable-WtcgTasksInWindowAndScheduleReenable
+Enable-WtcgTaskIdentity
+Find-WtcgTaskInWindow
+Save-WtcgManifest
+Start-WtcgTaskIdentity
 ```
 
 ## Selection JSON behavior
@@ -394,13 +403,7 @@ The test runner measures coverage for the module loader plus the split function 
 
 ## XML disable log
 
-The core module can now write an XML log detailing tasks found and disabled.
-
-Core function:
-
-```powershell
-Write-WtcgDisableXmlLog
-```
+The regular disable script writes an XML log detailing tasks found and disabled. The XML writer is now an internal helper, not an exported module command.
 
 The regular disable script writes an XML log by default. When `-XmlLogPath` is not provided, the log is written inside the central run folder under `logs\disabled-tasks.xml`:
 
@@ -464,15 +467,7 @@ JSONL events are written to the central run folder's `streamablelogs/` directory
 .\runs\<runId>\streamablelogs\wintaskcrossingguard-events.jsonl
 ```
 
-Core functions:
-
-```powershell
-Resolve-WtcgJsonlLogPath
-Write-WtcgDisableJsonlLog
-Write-WtcgReenableJsonlLog
-Write-WtcgErrorJsonlLog
-Write-WtcgNotificationJsonlLog
-```
+JSONL path resolution and event writers are internal helpers used by the wrapper scripts and orchestration command; they are not exported as public module commands.
 
 Each line is one compact JSON object with these top-level fields:
 
@@ -528,23 +523,7 @@ Telemetry export uses the local JSONL stream as the source of truth. Workflow op
 
 The implementation currently includes configuration parsing, Elastic/OpenSearch bulk payload building, generic HTTP sending with retry/timeout/header/TLS options, and workflow-level export after JSONL writes.
 
-Core functions:
-
-```powershell
-Get-WtcgTelemetrySettings
-Import-WtcgJsonlEvent
-ConvertTo-WtcgElasticBulkPayload
-ConvertTo-WtcgHttpHeaderDictionary
-Invoke-WtcgTelemetryRestMethod
-Invoke-WtcgHttpRequestWithRetry
-Send-WtcgGenericHttpPayload
-Invoke-WtcgTelemetryExportForJsonl
-Save-WtcgTelemetryExportReport
-ConvertTo-WtcgDatadogLogPayload
-ConvertTo-WtcgSplunkHecPayload
-ConvertTo-WtcgAzureMonitorPayload
-Resolve-WtcgAzureMonitorLogsIngestionUri
-```
+The telemetry parsers, payload builders, retry helpers, and sink senders are internal implementation helpers. Operational workflows call them after JSONL writes, but the module manifest does not export them as public commands.
 
 ### Secure `.env` examples
 
@@ -571,7 +550,7 @@ WTCG_ELASTICSEARCH_API_KEY=<store in secret manager or local .env only>
 WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=false
 ```
 
-Elastic data-stream style sink. Data streams should use `create` bulk actions, which `ConvertTo-WtcgElasticBulkPayload -DataStream` does automatically:
+Elastic data-stream style sink. Data streams should use `create` bulk actions; the internal export layer handles that automatically when data-stream mode is enabled:
 
 ```dotenv
 WTCG_TELEMETRY_ENABLED=true
@@ -609,17 +588,12 @@ WTCG_GENERIC_HTTP_ALLOW_INSECURE_TLS=true
 
 Use those only for local labs with self-signed certificates. Production collectors should use valid TLS and leave both options set to `false`.
 
-### Build and inspect an Elastic bulk payload
+### Inspect generated telemetry input
+
+The public workflow writes its SIEM source stream to JSONL first. To inspect events without relying on private helpers, read the generated stream directly:
 
 ```powershell
-$settings = Get-WtcgTelemetrySettings -EnvPath .\.env
-$payload = ConvertTo-WtcgElasticBulkPayload `
-  -JsonlPath .\runs\<runId>\streamablelogs\wintaskcrossingguard-events.jsonl `
-  -Index $settings.Elasticsearch.Index `
-  -DataStream:$settings.Elasticsearch.DataStream
-
-# Preview the first few NDJSON lines without sending anything.
-$payload -split "`n" | Select-Object -First 6
+Get-Content .\runs\<runId>\streamablelogs\wintaskcrossingguard-events.jsonl | Select-Object -First 6
 ```
 
 Generated Elastic/OpenSearch bulk payloads:
@@ -638,520 +612,9 @@ When `-DataStream` is used, the action metadata switches to `create`:
 
 Bulk payloads always end with a final newline, which Elastic/OpenSearch bulk endpoints expect for NDJSON bodies.
 
-### Generic HTTP sender example
+### Generic HTTP telemetry export
 
-```powershell
-$result = Send-WtcgGenericHttpPayload `
-  -Uri $settings.GenericHttp.Uri `
-  -Method $settings.GenericHttp.Method `
-  -Body $payload `
-  -ContentType $settings.GenericHttp.ContentType `
-  -Headers $settings.GenericHttp.Headers `
-  -AuthHeaderName $settings.GenericHttp.AuthHeaderName `
-  -AuthHeaderValue $settings.GenericHttp.AuthHeaderValue `
-  -TimeoutSeconds $settings.TimeoutSeconds `
-  -RetryCount $settings.RetryCount `
-  -RetryDelaySeconds $settings.RetryDelaySeconds `
-  -AllowInsecureTls:$settings.GenericHttp.AllowInsecureTls `
-  -FailOnError:$settings.FailOnError
-```
-
-### Suggested Elastic/OpenSearch index template
-
-A starter template is shipped at:
-
-```text
-examples/elastic-index-template.wintaskcrossingguard.example.json
-```
-
-It maps common fields such as `@timestamp`, `timestampUtc`, `source`, `action`, `operation`, `status`, `runId`, `hostName`, `userName`, and `details.*`. The template intentionally keeps `details` flexible because different workflow actions carry different detail fields.
-
-Install it with a privileged account before enabling export:
-
-```powershell
-$apiKey = '<secret>'
-Invoke-RestMethod `
-  -Method Put `
-  -Uri 'https://elastic.example.com:9200/_index_template/wintaskcrossingguard-events' `
-  -Headers @{ Authorization = "ApiKey $apiKey" } `
-  -ContentType 'application/json' `
-  -InFile .\examples\elastic-index-template.wintaskcrossingguard.example.json
-```
-
-For OpenSearch, the same template shape is a useful starting point, but validate it against your OpenSearch version and index-management policy before production use.
-
-### Stage 5 adapters: Datadog, Splunk HEC, Azure Monitor/Sentinel, and Logstash
-
-Stage 5 adds vendor-specific payload shaping and sink wiring on top of the generic HTTP sender. These adapters still use the local JSONL stream as source of truth and still write sanitized export results to the run folder.
-
-Datadog Logs HTTP intake:
-
-```dotenv
-WTCG_TELEMETRY_ENABLED=true
-WTCG_TELEMETRY_SINKS=datadog
-WTCG_DATADOG_ENABLED=true
-WTCG_DATADOG_URI=https://http-intake.logs.datadoghq.com/api/v2/logs
-WTCG_DATADOG_API_KEY=<secret>
-WTCG_DATADOG_SERVICE=wintaskcrossingguard
-WTCG_DATADOG_SOURCE=powershell
-WTCG_DATADOG_TAGS=tool:wintaskcrossingguard,env:prod
-```
-
-The Datadog adapter sends a JSON array of log objects and authenticates with the `DD-API-KEY` header. Reports include the header name, but not the API key value.
-
-Splunk HTTP Event Collector:
-
-```dotenv
-WTCG_TELEMETRY_ENABLED=true
-WTCG_TELEMETRY_SINKS=splunkHec
-WTCG_SPLUNK_HEC_ENABLED=true
-WTCG_SPLUNK_HEC_URI=https://splunk.example.com:8088/services/collector
-WTCG_SPLUNK_HEC_TOKEN=<secret>
-WTCG_SPLUNK_HEC_INDEX=main
-WTCG_SPLUNK_HEC_SOURCE=WinTaskCrossingGuard
-WTCG_SPLUNK_HEC_SOURCETYPE=_json
-```
-
-The Splunk adapter emits one HEC envelope per event with `event` containing the original JSONL event. It authenticates with `Authorization: Splunk <token>` and strips query strings from report URIs.
-
-Azure Monitor Logs Ingestion API / Microsoft Sentinel:
-
-```dotenv
-WTCG_TELEMETRY_ENABLED=true
-WTCG_TELEMETRY_SINKS=azureMonitor
-WTCG_AZURE_MONITOR_ENABLED=true
-WTCG_AZURE_MONITOR_ENDPOINT=https://dce-example.eastus-1.ingest.monitor.azure.com
-WTCG_AZURE_MONITOR_DCR_IMMUTABLE_ID=dcr-00000000000000000000000000000000
-WTCG_AZURE_MONITOR_STREAM_NAME=Custom-WinTaskCrossingGuard_CL
-WTCG_AZURE_MONITOR_API_VERSION=2023-01-01
-WTCG_AZURE_MONITOR_BEARER_TOKEN=<secret>
-```
-
-The Azure adapter posts a JSON array to the Logs Ingestion API. It assumes a bearer token has already been acquired by the operator, CI/CD system, managed identity wrapper, or secret-management layer. The custom table/Data Collection Rule must match the fields emitted by `ConvertTo-WtcgAzureMonitorPayload`.
-
-Logstash HTTP input:
-
-```dotenv
-WTCG_TELEMETRY_ENABLED=true
-WTCG_TELEMETRY_SINKS=logstash
-WTCG_LOGSTASH_ENABLED=true
-WTCG_LOGSTASH_URI=https://logstash.example.com:8080/wintaskcrossingguard
-WTCG_LOGSTASH_FORMAT=ndjson
-WTCG_LOGSTASH_CONTENT_TYPE=application/x-ndjson
-WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
-```
-
-For Logstash, use `ndjson` with an HTTP input configured with a `json_lines` codec, or switch to `jsonArray` with a JSON-capable pipeline. The Logstash adapter is intentionally thin because Logstash deployments vary widely.
-
-Example multi-sink setup:
-
-```dotenv
-WTCG_TELEMETRY_ENABLED=true
-WTCG_TELEMETRY_SINKS=elasticsearch,datadog,splunkHec,azureMonitor,logstash
-```
-
-Keep this kind of fan-out for high-value workflows only. Every enabled sink receives the same filtered JSONL event set, so retry and timeout settings apply to each enabled destination.
-
-
-### Failure-mode notes
-
-Default behavior is best effort:
-
-```dotenv
-WTCG_TELEMETRY_FAIL_ON_ERROR=false
-```
-
-In this mode, task disable/restore workflows continue even if telemetry export fails. Export failures are recorded in the run folder so the local audit trail stays complete.
-
-Strict mode:
-
-```dotenv
-WTCG_TELEMETRY_FAIL_ON_ERROR=true
-```
-
-In strict mode, telemetry failures can fail the workflow. Use this only when enterprise policy requires external telemetry receipt to be part of the operation’s success criteria. For most maintenance windows, leave strict mode disabled so an observability outage does not block task restoration.
-
-Retry behavior:
-
-```dotenv
-WTCG_TELEMETRY_RETRY_COUNT=2
-WTCG_TELEMETRY_RETRY_DELAY_SECONDS=2
-```
-
-Transient HTTP statuses such as throttling or server-side failures are retried by the generic sender. Final results include attempt counts, status code, sink name, and sanitized destination information.
-
-Security reminders:
-
-```text
-Do not put credentials in URLs.
-Do not commit .env with live secrets.
-Do not paste telemetry API keys into issue trackers or PR logs.
-Rotate API keys or collector tokens if they appear in console logs, reports, commits, or screenshots.
-Use least-privilege API keys that can only write to the WinTaskCrossingGuard target index/data stream.
-```
-
-Telemetry export is skipped by default because `WTCG_TELEMETRY_ENABLED=false`.
-
-Helpful references:
-
-```text
-Elasticsearch Bulk API: https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-bulk
-Elasticsearch API key authentication: https://www.elastic.co/docs/api/doc/elasticsearch/authentication
-OpenSearch Bulk API: https://docs.opensearch.org/latest/api-reference/document-apis/bulk/
-OpenSearch index templates: https://docs.opensearch.org/latest/im-plugin/index-templates/
-Datadog Logs API: https://docs.datadoghq.com/api/latest/logs/
-Splunk HEC event format: https://docs.splunk.com/Documentation/Splunk/latest/Data/FormateventsforHTTPEventCollector
-Azure Monitor Logs Ingestion API: https://learn.microsoft.com/azure/azure-monitor/logs/logs-ingestion-api-overview
-Logstash HTTP input: https://www.elastic.co/guide/en/logstash/current/plugins-inputs-http.html
-```
-
-## Windows Event Log audit trail
-
-Important actions and failures are also emitted to the native Windows Event Log for enterprise audit tooling.
-
-Default native audit target:
-
-```text
-Log name: Application
-Source: WinTaskCrossingGuard
-```
-
-The event message is compact JSON with operation, action, status, host, user, process ID, run ID, run folder path, and action-specific details. The integration is non-fatal by default: if the `WinTaskCrossingGuard` source does not exist and the current process cannot create it, the XML and JSONL logs still succeed.
-
-Common event IDs:
-
-```text
-4100 disable completed
-4101 scheduled re-enable task created or updated
-4200 restore/re-enable completed
-5100 disable workflow failed
-5200 restore/re-enable workflow failed
-```
-
-Pre-create the source from an elevated PowerShell session when you want guaranteed native audit writes:
-
-```powershell
-Initialize-WtcgWindowsEventLogSource `
-  -Source 'WinTaskCrossingGuard' `
-  -LogName 'Application'
-```
-
-Disable native Event Log writes for a run:
-
-```powershell
-Disable-WtcgTasksInWindowAndScheduleReenable `
-  -Start '22:00' `
-  -End '06:00' `
-  -ReenableAt ([datetime]'2026-04-27T06:30:00') `
-  -SelectionPath .\task-selection.example.json `
-  -IdentityOutputPath .\rollback-manifest.json `
-  -DisableEventLog
-```
-
-Use `-FailOnEventLogError` when audit failure should fail the task operation instead of being skipped.
-
-## Webhook and ChatOps notifications
-
-In addition to SMTP, WinTaskCrossingGuard can post notifications to Microsoft Teams, Slack, and Discord webhooks. Webhook configuration lives in `.env` so secrets stay out of task-selection JSON files.
-
-Supported providers:
-
-```text
-Microsoft Teams incoming webhook / workflow webhook
-Slack incoming webhook
-Discord webhook
-```
-
-Global settings:
-
-```env
-WTCG_WEBHOOKS_ENABLED=true
-WTCG_WEBHOOK_TIMEOUT_SECONDS=15
-WTCG_WEBHOOK_FAIL_ON_ERROR=false
-```
-
-Provider settings:
-
-```env
-WTCG_WEBHOOK_TEAMS_ENABLED=false
-WTCG_WEBHOOK_TEAMS_URL=
-WTCG_WEBHOOK_TEAMS_EVENTS=result,error
-WTCG_WEBHOOK_TEAMS_FAIL_ON_ERROR=false
-
-WTCG_WEBHOOK_SLACK_ENABLED=false
-WTCG_WEBHOOK_SLACK_URL=
-WTCG_WEBHOOK_SLACK_EVENTS=result,error
-WTCG_WEBHOOK_SLACK_FAIL_ON_ERROR=false
-
-WTCG_WEBHOOK_DISCORD_ENABLED=false
-WTCG_WEBHOOK_DISCORD_URL=
-WTCG_WEBHOOK_DISCORD_EVENTS=result,error
-WTCG_WEBHOOK_DISCORD_FAIL_ON_ERROR=false
-```
-
-`*_EVENTS` accepts a comma-separated list of `result`, `error`, and `notification`. Result notifications are sent when logs/reports are generated. Error notifications are sent when a workflow fails. Webhook failures are non-fatal by default; set `WTCG_WEBHOOK_FAIL_ON_ERROR=true` or a provider-specific `*_FAIL_ON_ERROR=true` when ChatOps delivery should fail the operation.
-
-Webhook notification attempts are also written as JSONL notification events with channels such as `webhook:teams`, `webhook:slack`, and `webhook:discord`.
-
-## Intranet SMTP email notifications
-
-The suite supports two separate email notification events:
-
-```text
-1. XML log generated
-2. Error encountered
-```
-
-The XML-log-generated email can attach the generated XML log file:
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\Disable-TasksInWindow.ps1 `
-  -Start '22:00' `
-  -End '06:00' `
-  -SelectionPath .\task-selection.example.json `
-  -LogEmailSmtpServer 'mail.intranet.local' `
-  -LogEmailFrom 'wintaskcrossingguard@example.com' `
-  -LogEmailTo 'ops@example.com'
-```
-
-The error email is independent and is sent only when an error is encountered:
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\Disable-TasksInWindow.ps1 `
-  -Start '22:00' `
-  -End '06:00' `
-  -SelectionPath .\task-selection.example.json `
-  -ErrorEmailSmtpServer 'mail.intranet.local' `
-  -ErrorEmailFrom 'wintaskcrossingguard@example.com' `
-  -ErrorEmailTo 'ops@example.com'
-```
-
-Both events can be enabled at the same time:
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\Disable-TasksInWindow.ps1 `
-  -Start '22:00' `
-  -End '06:00' `
-  -SelectionPath .\task-selection.example.json `
-  -LogEmailSmtpServer 'mail.intranet.local' `
-  -LogEmailFrom 'wintaskcrossingguard@example.com' `
-  -LogEmailTo 'ops@example.com' `
-  -ErrorEmailSmtpServer 'mail.intranet.local' `
-  -ErrorEmailFrom 'wintaskcrossingguard@example.com' `
-  -ErrorEmailTo 'ops@example.com'
-```
-
-The same notification parameters are available on:
-
-```powershell
-Disable-WtcgTasksInWindowAndScheduleReenable
-```
-
-By default, email failures are warnings and do not block the suite. Use these flags to make email failure stop the operation:
-
-```powershell
--FailOnLogEmailError
--FailOnErrorEmail
-```
-
-
-## JSON mail configuration
-
-Email settings can be configured inside the same JSON used by `-SelectionPath`:
-
-```json
-{
-  "mail": {
-    "enabled": true,
-    "smtpServer": "mail.internal.example.com",
-    "port": 25,
-    "from": "wintaskcrossingguard@example.com",
-    "to": [
-      "ops@example.com"
-    ],
-    "cc": [
-      "audit@example.com"
-    ],
-    "useSsl": false,
-    "attachXmlLog": true,
-    "attachIdentityFile": true
-  }
-}
-```
-
-When `mail.enabled` is `true`, the suite uses those settings for two separate notification events:
-
-```text
-1. XML log generated
-2. Error encountered
-```
-
-`attachXmlLog` controls whether the generated XML log is attached.
-
-`attachIdentityFile` controls whether the generated task identity JSON file is attached.
-
-The mail object is optional. If it is missing or disabled, no JSON-configured email is sent.
-
-
-## Single-entry and split-entry mail JSON
-
-The `mail` setting supports two shapes.
-
-### One mail entry
-
-When one mail entry is included, it is used for both events:
-
-```text
-1. XML log/result email
-2. Error email
-```
-
-Example file:
-
-```text
-examples/task-selection.mail-single-entry.example.json
-```
-
-### Two mail entries
-
-When two mail entries are included, one entry is used for the suite result/log email and the other is used for error email.
-
-Preferred explicit format:
-
-```json
-{
-  "mail": [
-    {
-      "event": "result",
-      "enabled": true,
-      "smtpServer": "mail.internal.example.com",
-      "port": 25,
-      "from": "wintaskcrossingguard@example.com",
-      "to": ["ops@example.com"],
-      "cc": ["audit@example.com"],
-      "useSsl": false,
-      "attachXmlLog": true,
-      "attachIdentityFile": true
-    },
-    {
-      "event": "error",
-      "enabled": true,
-      "smtpServer": "mail.internal.example.com",
-      "port": 25,
-      "from": "wintaskcrossingguard@example.com",
-      "to": ["ops-alerts@example.com"],
-      "cc": ["audit@example.com"],
-      "useSsl": false,
-      "attachXmlLog": true,
-      "attachIdentityFile": true
-    }
-  ]
-}
-```
-
-Example file:
-
-```text
-examples/task-selection.mail-split-entry.example.json
-```
-
-When two mail entries are provided, both entries must include an explicit `event` field.
-
-Required values:
-
-```text
-event = result
-event = error
-```
-
-If either entry is missing `event`, or if the pair does not contain exactly one `result` and one `error`, the suite prints a console error, writes an XML error log, sends the error email when possible, and stops before disabling tasks.
-
-Invalid example file:
-
-```text
-examples/task-selection.mail-invalid-missing-event.example.json
-```
-
-
-## Safety allow-list mode
-
-Enable explicit-only task disabling with:
-
-```json
-{
-  "safetyAllowListMode": true
-}
-```
-
-When enabled, the suite refuses to scan or disable unless at least one `includeFolders` or `includeTasks` entry is present. This prevents accidental broad scans such as root folder plus recursive scanning.
-
-## Protected never-disable task policy
-
-The suite includes a built-in protected list for risky Windows/Microsoft/system task folders. Protected entries are filtered out before disable operations and win over explicit includes.
-
-You can extend the protected list in JSON:
-
-```json
-{
-  "protectedFolders": [
-    {
-      "taskPath": "\\MyCompany\\Critical\\",
-      "recurse": true
-    }
-  ],
-  "protectedTasks": [
-    {
-      "taskPath": "\\MyCompany\\",
-      "taskName": "DoNotDisable-*"
-    }
-  ]
-}
-```
-
-Example:
-
-```text
-examples/task-selection.safety-allow-list.example.json
-```
-
-
-## Strict two-entry mail validation
-
-When two mail entries are provided, both entries must include an explicit `event` field. One must be `result` and one must be `error`.
-
-If either entry is missing `event`, or if the pair does not contain exactly one `result` and one `error`, the suite prints a console error, writes an XML error log, sends the error email when possible, and stops before disabling tasks.
-
-Invalid example:
-
-```text
-examples/task-selection.mail-invalid-missing-event.example.json
-```
-
-
-## Verification note for this package
-
-This package was statically verified for:
-
-```text
-Required file inventory
-JSON example/schema parsing
-CI YAML parsing
-Safety allow-list mode function wiring
-Protected never-disable task function wiring
-Strict two-entry mail validation
-XML disable/error log functions
-Error email fallback settings
-90% coverage gate command wiring
-```
-
-Pester and real Windows Task Scheduler execution must be run on a Windows machine with PowerShell 7 because this environment does not provide `pwsh` or the Windows `ScheduledTasks` module.
-
-
-## .env log retention
-
-The suite can clean up old XML logs and JSONL event streams at the end of successful execution.
-
-Create a `.env` file in the repository root:
+Configure the generic HTTP sink through `.env` and run one of the public workflows. The workflow writes JSONL locally, exports matching events, then records the export result under the run folder reports directory.
 
 ```text
 LOG_RETENTION=30
@@ -1172,24 +635,14 @@ Example file included:
 
 Cleanup applies to XML files in the suite `logs` folder and JSONL files in the suite `streamablelogs` folder when called with `-Filter '*.jsonl'`. Central run folders are intentionally left intact for audit review unless an operator removes them. Other file types are ignored.
 
-The cleanup function is:
-
-```powershell
-Clear-WtcgOldLogs
-```
-
-The `.env` parser function is:
-
-```powershell
-Import-WtcgDotEnv
-```
+Legacy cleanup and `.env` parsing are handled by internal helpers that are called by the repository scripts. They are intentionally not exported from the module manifest.
 
 
 ## Project name
 
 This project is named **WinTaskCrossingGuard**.
 
-The suite uses the `Wtcg` prefix for internal PowerShell functions.
+The suite uses the `Wtcg` prefix for PowerShell functions. Only files under `WinTaskCrossingGuard/Public` are exported as supported module commands; categorized helper folders remain private implementation details.
 
 ## License
 
@@ -1238,7 +691,7 @@ Run tests from the repository root:
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardTests.ps1 -MinimumCoveragePercent 90
 ```
 
-The root scripts are convenience wrappers that call the matching scripts under `scripts\`.
+The root scripts are convenience wrappers that call the matching scripts under `scripts\`. The repository scripts dot-source `WinTaskCrossingGuard\Load-WinTaskCrossingGuardInternal.ps1` so they can use private helpers without exporting them from the module manifest.
 
 ## Runtime lock / mutex
 

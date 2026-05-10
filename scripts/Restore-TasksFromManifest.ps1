@@ -58,7 +58,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot '..\WinTaskCrossingGuard\WinTaskCrossingGuard.psd1') -Force
+. (Join-Path $PSScriptRoot '..\WinTaskCrossingGuard\Load-WinTaskCrossingGuardInternal.ps1')
 
 $inferredRunFolderPath = $RunFolderPath
 if ([string]::IsNullOrWhiteSpace($inferredRunFolderPath) -and -not [string]::IsNullOrWhiteSpace($ManifestPath)) {

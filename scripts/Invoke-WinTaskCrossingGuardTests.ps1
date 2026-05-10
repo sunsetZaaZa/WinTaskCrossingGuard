@@ -42,6 +42,7 @@ $config.CodeCoverage.Enabled = $true
 $moduleSourceRoot = Join-Path $PSScriptRoot '..\WinTaskCrossingGuard'
 $moduleSourceFiles = @(
     Join-Path $moduleSourceRoot 'WinTaskCrossingGuard.psm1'
+    Join-Path $moduleSourceRoot 'Load-WinTaskCrossingGuardInternal.ps1'
 ) + @(
     Get-ChildItem -LiteralPath $moduleSourceRoot -Directory |
         Where-Object {

@@ -6,7 +6,7 @@ Example-WinTaskCrossingGuardWorkflow.ps1
 This is a plain example script.
 It shows how to:
 
-1. Import the WinTaskCrossingGuard module
+1. Load the WinTaskCrossingGuard repository internals
 2. Define a time window
 3. Load task selection JSON
 4. Find tasks inside the time window
@@ -24,11 +24,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------------
-# 1. Import the suite module
+# 1. Load repository internals for this advanced example
 # ---------------------------------------------------------------------
 
-$modulePath = Join-Path $PSScriptRoot '..\WinTaskCrossingGuard\WinTaskCrossingGuard.psd1'
-Import-Module $modulePath -Force
+. (Join-Path $PSScriptRoot '..\WinTaskCrossingGuard\Load-WinTaskCrossingGuardInternal.ps1')
 
 # ---------------------------------------------------------------------
 # 2. Define the time window
