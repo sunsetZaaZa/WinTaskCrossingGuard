@@ -2,8 +2,9 @@ function ConvertTo-WtcgElasticBulkPayload {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]
+        [Alias('Event')]
         [AllowNull()]
-        [object[]] $Event,
+        [object[]] $InputEvent,
 
         [Parameter()]
         [AllowNull()]
@@ -27,7 +28,7 @@ function ConvertTo-WtcgElasticBulkPayload {
     }
 
     process {
-        foreach ($entry in @($Event)) {
+        foreach ($entry in @($InputEvent)) {
             if ($null -ne $entry) {
                 $events.Add($entry)
             }

@@ -101,11 +101,11 @@ WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=true
                 '{"action":"error","runId":"wtcg-1"}'
             ) | Set-Content -Path $jsonlPath -Encoding utf8
 
-            $events = @(Import-WtcgJsonlEvent -Path $jsonlPath)
+            $capturedEvents = @(Import-WtcgJsonlEvent -Path $jsonlPath)
 
-            $events.Count | Should -Be 2
-            $events[0].action | Should -Be 'disable'
-            $events[1].action | Should -Be 'error'
+            $capturedEvents.Count | Should -Be 2
+            $capturedEvents[0].action | Should -Be 'disable'
+            $capturedEvents[1].action | Should -Be 'error'
         }
     }
 
@@ -141,12 +141,12 @@ WTCG_ELASTICSEARCH_ALLOW_INSECURE_TLS=true
 
     It 'builds an index bulk payload from piped event objects' {
         InModuleScope WinTaskCrossingGuard {
-            $events = @(
+            $capturedEvents = @(
                 [pscustomobject]@{ action = 'disable'; runId = 'wtcg-pipeline' },
                 [pscustomobject]@{ action = 're-enable'; runId = 'wtcg-pipeline' }
             )
 
-            $payload = $events | ConvertTo-WtcgElasticBulkPayload -Index 'wtcg-index'
+            $payload = $capturedEvents | ConvertTo-WtcgElasticBulkPayload -Index 'wtcg-index'
             $lines = @($payload -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 
             $lines.Count | Should -Be 4
@@ -610,7 +610,7 @@ WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
 
     It 'builds Datadog log payloads without exposing the API key' {
         InModuleScope WinTaskCrossingGuard {
-            $event = [pscustomobject]@{
+            $capturedEvent = [pscustomobject]@{
                 action = 'disable'
                 status = 'succeeded'
                 operation = 'Pester'
@@ -618,7 +618,7 @@ WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
                 hostName = 'host01'
             }
 
-            $payload = $event | ConvertTo-WtcgDatadogLogPayload -Service 'wtcg' -Source 'powershell' -Tags 'env:test'
+            $payload = $capturedEvent | ConvertTo-WtcgDatadogLogPayload -Service 'wtcg' -Source 'powershell' -Tags 'env:test'
             $logs = @($payload | ConvertFrom-Json)
             $logs.Count | Should -Be 1
             $logs[0].service | Should -Be 'wtcg'
@@ -632,14 +632,14 @@ WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
 
     It 'builds Splunk HEC payloads and auth headers' {
         InModuleScope WinTaskCrossingGuard {
-            $event = [pscustomobject]@{
+            $capturedEvent = [pscustomobject]@{
                 timestampUtc = '2030-01-02T03:04:05Z'
                 action = 'error'
                 runId = 'wtcg-splunk'
                 hostName = 'host02'
             }
 
-            $payload = $event | ConvertTo-WtcgSplunkHecPayload -Index 'main' -Source 'WinTaskCrossingGuard' -Sourcetype '_json'
+            $payload = $capturedEvent | ConvertTo-WtcgSplunkHecPayload -Index 'main' -Source 'WinTaskCrossingGuard' -Sourcetype '_json'
             $payload.EndsWith("`n") | Should -BeTrue
             $payloadLine = ([string]$payload).Trim()
             $payloadLine | Should -Not -Match "(`r`n|`n|`r)"
@@ -658,7 +658,7 @@ WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
 
     It 'builds Azure Monitor Logs Ingestion payloads and URI' {
         InModuleScope WinTaskCrossingGuard {
-            $event = [pscustomobject]@{
+            $capturedEvent = [pscustomobject]@{
                 timestampUtc = '2030-01-02T03:04:05Z'
                 action = 'disable'
                 operation = 'PesterAzure'
@@ -668,7 +668,7 @@ WTCG_LOGSTASH_HEADERS=X-WTCG-Source=WinTaskCrossingGuard
                 details = [pscustomobject]@{ disabledTaskCount = 2 }
             }
 
-            $payload = $event | ConvertTo-WtcgAzureMonitorPayload
+            $payload = $capturedEvent | ConvertTo-WtcgAzureMonitorPayload
             $records = @($payload | ConvertFrom-Json)
             $records.Count | Should -Be 1
             $timeGenerated = if ($records[0].TimeGenerated -is [datetime]) {

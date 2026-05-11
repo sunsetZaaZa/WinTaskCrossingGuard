@@ -32,6 +32,24 @@ or let the runner call the bootstrap script:
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardTests.ps1 -MinimumCoveragePercent 90 -InstallPester
 ```
 
+
+## Run static analysis
+
+Run PSScriptAnalyzer locally with the same rule gate used by CI:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardAnalyzer.ps1 -InstallAnalyzer
+```
+
+Static analysis artifacts are written to:
+
+```text
+.\TestResults\scriptanalyzer-results.json
+.\TestResults\scriptanalyzer-results.csv
+```
+
+The analyzer settings live in `PSScriptAnalyzerSettings.psd1`.
+
 ## Run tests and coverage
 
 ```powershell

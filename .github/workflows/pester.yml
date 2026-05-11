@@ -25,6 +25,11 @@ jobs:
         run: |
           $PSVersionTable
 
+
+      - name: Run PSScriptAnalyzer
+        run: |
+          ./Invoke-WinTaskCrossingGuardAnalyzer.ps1 -InstallAnalyzer
+
       - name: Install or update project Pester version
         run: |
           ./Install-ProjectPester.ps1 `
@@ -45,4 +50,6 @@ jobs:
           path: |
             TestResults/pester-results.xml
             TestResults/coverage.xml
+            TestResults/scriptanalyzer-results.json
+            TestResults/scriptanalyzer-results.csv
           if-no-files-found: error

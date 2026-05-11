@@ -251,7 +251,7 @@ If any include list is present, only included folders/tasks are eligible. If no 
 - Command-line `-Recurse` still controls command-line `-TaskPath` scanning. JSON folder recursion is controlled per folder with `"recurse": true` or `"recurse": false`.
 
 
-## Test bootstrap
+## Test and static analysis bootstrap
 
 Install or update the project-required Pester version:
 
@@ -264,6 +264,14 @@ Run tests and install/update Pester first if needed:
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardTests.ps1 -InstallPester
 ```
+
+Run the same PSScriptAnalyzer gate used by CI:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardAnalyzer.ps1 -InstallAnalyzer
+```
+
+The analyzer uses `PSScriptAnalyzerSettings.psd1` and fails on `Error` or `Warning` findings from the selected style, unused-variable, command-correctness, security, and `ShouldProcess` rules. Reports are written to `TestResults\scriptanalyzer-results.json` and `TestResults\scriptanalyzer-results.csv`.
 
 
 ## Plain workflow example
@@ -288,7 +296,7 @@ azure-pipelines.yml
 CI-CD-README.md
 ```
 
-Each pipeline runs the Pester test suite on Windows with PowerShell 7.
+Each pipeline runs PSScriptAnalyzer first, then the Pester test suite on Windows with PowerShell 7.
 
 
 ## Scheduled re-enable orchestration

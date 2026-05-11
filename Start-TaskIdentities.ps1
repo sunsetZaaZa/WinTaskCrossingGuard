@@ -1,4 +1,5 @@
 #requires -Version 7.0
 
-& (Join-Path $PSScriptRoot 'scripts\Start-TaskIdentities.ps1') @args
+$scriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'scripts\Start-TaskIdentities.ps1'
+& $scriptPath @args
 exit $LASTEXITCODE

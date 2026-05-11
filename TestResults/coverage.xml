@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd"[]>
-<report name="Pester (05/10/2026 20:46:05)">
-  <sessioninfo id="this" start="1778445951498" dump="1778445965293" />
+<report name="Pester (05/11/2026 13:27:12)">
+  <sessioninfo id="this" start="1778506024640" dump="1778506032142" />
   <package name="WinTaskCrossingGuard">
     <class name="WinTaskCrossingGuard/Load-WinTaskCrossingGuardInternal" sourcefilename="Load-WinTaskCrossingGuardInternal.ps1">
       <method name="&lt;script&gt;" desc="()" line="12">
@@ -88,7 +88,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/New-WtcgJsonlEvent" sourcefilename="Logging/New-WtcgJsonlEvent.ps1">
-      <method name="New-WtcgJsonlEvent" desc="()" line="43">
+      <method name="New-WtcgJsonlEvent" desc="()" line="44">
         <counter type="INSTRUCTION" missed="1" covered="20" />
         <counter type="LINE" missed="0" covered="19" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -121,7 +121,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/Write-WtcgAuditEvent" sourcefilename="Logging/Write-WtcgAuditEvent.ps1">
-      <method name="Write-WtcgAuditEvent" desc="()" line="55">
+      <method name="Write-WtcgAuditEvent" desc="()" line="56">
         <counter type="INSTRUCTION" missed="0" covered="34" />
         <counter type="LINE" missed="0" covered="31" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -132,7 +132,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/Write-WtcgDisableJsonlLog" sourcefilename="Logging/Write-WtcgDisableJsonlLog.ps1">
-      <method name="Write-WtcgDisableJsonlLog" desc="()" line="52">
+      <method name="Write-WtcgDisableJsonlLog" desc="()" line="53">
         <counter type="INSTRUCTION" missed="2" covered="40" />
         <counter type="LINE" missed="0" covered="27" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -143,7 +143,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/Write-WtcgDisableXmlLog" sourcefilename="Logging/Write-WtcgDisableXmlLog.ps1">
-      <method name="Write-WtcgDisableXmlLog" desc="()" line="49">
+      <method name="Write-WtcgDisableXmlLog" desc="()" line="50">
         <counter type="INSTRUCTION" missed="1" covered="69" />
         <counter type="LINE" missed="1" covered="62" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -154,7 +154,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/Write-WtcgErrorJsonlLog" sourcefilename="Logging/Write-WtcgErrorJsonlLog.ps1">
-      <method name="Write-WtcgErrorJsonlLog" desc="()" line="36">
+      <method name="Write-WtcgErrorJsonlLog" desc="()" line="37">
         <counter type="INSTRUCTION" missed="4" covered="16" />
         <counter type="LINE" missed="0" covered="12" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -165,7 +165,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/Write-WtcgErrorXmlLog" sourcefilename="Logging/Write-WtcgErrorXmlLog.ps1">
-      <method name="Write-WtcgErrorXmlLog" desc="()" line="36">
+      <method name="Write-WtcgErrorXmlLog" desc="()" line="37">
         <counter type="INSTRUCTION" missed="0" covered="45" />
         <counter type="LINE" missed="0" covered="39" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -176,7 +176,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/Write-WtcgJsonlEvent" sourcefilename="Logging/Write-WtcgJsonlEvent.ps1">
-      <method name="Write-WtcgJsonlEvent" desc="()" line="14">
+      <method name="Write-WtcgJsonlEvent" desc="()" line="16">
         <counter type="INSTRUCTION" missed="1" covered="15" />
         <counter type="LINE" missed="1" covered="13" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -187,7 +187,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/Write-WtcgNotificationJsonlLog" sourcefilename="Logging/Write-WtcgNotificationJsonlLog.ps1">
-      <method name="Write-WtcgNotificationJsonlLog" desc="()" line="67">
+      <method name="Write-WtcgNotificationJsonlLog" desc="()" line="68">
         <counter type="INSTRUCTION" missed="0" covered="17" />
         <counter type="LINE" missed="0" covered="11" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -198,7 +198,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Logging/Write-WtcgReenableJsonlLog" sourcefilename="Logging/Write-WtcgReenableJsonlLog.ps1">
-      <method name="Write-WtcgReenableJsonlLog" desc="()" line="37">
+      <method name="Write-WtcgReenableJsonlLog" desc="()" line="38">
         <counter type="INSTRUCTION" missed="0" covered="19" />
         <counter type="LINE" missed="0" covered="15" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -284,7 +284,6 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/New-WtcgJsonlEvent.ps1">
-      <line nr="43" mi="0" ci="1" mb="0" cb="0" />
       <line nr="44" mi="0" ci="1" mb="0" cb="0" />
       <line nr="45" mi="0" ci="1" mb="0" cb="0" />
       <line nr="46" mi="0" ci="1" mb="0" cb="0" />
@@ -295,14 +294,15 @@
       <line nr="51" mi="0" ci="1" mb="0" cb="0" />
       <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <line nr="53" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="56" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="54" mi="0" ci="1" mb="0" cb="0" />
       <line nr="57" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="60" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="58" mi="0" ci="1" mb="0" cb="0" />
       <line nr="61" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="64" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="62" mi="0" ci="1" mb="0" cb="0" />
       <line nr="65" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="68" mi="1" ci="2" mb="0" cb="0" />
-      <line nr="70" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="66" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="69" mi="1" ci="2" mb="0" cb="0" />
+      <line nr="71" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="1" covered="20" />
       <counter type="LINE" missed="0" covered="19" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -331,9 +331,8 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/Write-WtcgAuditEvent.ps1">
-      <line nr="55" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="56" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="57" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="56" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="57" mi="0" ci="3" mb="0" cb="0" />
       <line nr="58" mi="0" ci="1" mb="0" cb="0" />
       <line nr="59" mi="0" ci="1" mb="0" cb="0" />
       <line nr="60" mi="0" ci="1" mb="0" cb="0" />
@@ -346,12 +345,12 @@
       <line nr="67" mi="0" ci="1" mb="0" cb="0" />
       <line nr="68" mi="0" ci="1" mb="0" cb="0" />
       <line nr="69" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="72" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="70" mi="0" ci="1" mb="0" cb="0" />
       <line nr="73" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="76" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="74" mi="0" ci="1" mb="0" cb="0" />
       <line nr="77" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="80" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="82" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="78" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="81" mi="0" ci="2" mb="0" cb="0" />
       <line nr="83" mi="0" ci="1" mb="0" cb="0" />
       <line nr="84" mi="0" ci="1" mb="0" cb="0" />
       <line nr="85" mi="0" ci="1" mb="0" cb="0" />
@@ -361,230 +360,231 @@
       <line nr="89" mi="0" ci="1" mb="0" cb="0" />
       <line nr="90" mi="0" ci="1" mb="0" cb="0" />
       <line nr="91" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="95" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="92" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="96" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="34" />
       <counter type="LINE" missed="0" covered="31" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/Write-WtcgDisableJsonlLog.ps1">
-      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="56" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="53" mi="0" ci="1" mb="0" cb="0" />
       <line nr="57" mi="0" ci="1" mb="0" cb="0" />
       <line nr="58" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="64" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="65" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="66" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="67" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="59" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="65" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="66" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="67" mi="0" ci="2" mb="0" cb="0" />
       <line nr="68" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="70" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="69" mi="0" ci="1" mb="0" cb="0" />
       <line nr="71" mi="0" ci="1" mb="0" cb="0" />
       <line nr="72" mi="0" ci="1" mb="0" cb="0" />
       <line nr="73" mi="0" ci="1" mb="0" cb="0" />
       <line nr="74" mi="0" ci="1" mb="0" cb="0" />
       <line nr="75" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="76" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="76" mi="0" ci="1" mb="0" cb="0" />
       <line nr="77" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="78" mi="1" ci="3" mb="0" cb="0" />
-      <line nr="79" mi="1" ci="4" mb="0" cb="0" />
-      <line nr="80" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="78" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="79" mi="1" ci="3" mb="0" cb="0" />
+      <line nr="80" mi="1" ci="4" mb="0" cb="0" />
       <line nr="81" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="82" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="83" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="82" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="83" mi="0" ci="3" mb="0" cb="0" />
       <line nr="84" mi="0" ci="1" mb="0" cb="0" />
       <line nr="85" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="88" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="97" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="86" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="89" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="98" mi="0" ci="2" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="2" covered="40" />
       <counter type="LINE" missed="0" covered="27" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/Write-WtcgDisableXmlLog.ps1">
-      <line nr="49" mi="0" ci="1" mb="0" cb="0" />
       <line nr="50" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="54" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="51" mi="0" ci="1" mb="0" cb="0" />
       <line nr="55" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="60" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="56" mi="0" ci="1" mb="0" cb="0" />
       <line nr="61" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="64" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="67" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="68" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="71" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="62" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="65" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="68" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="69" mi="1" ci="0" mb="0" cb="0" />
       <line nr="72" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="73" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="76" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="73" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="74" mi="0" ci="2" mb="0" cb="0" />
       <line nr="77" mi="0" ci="1" mb="0" cb="0" />
       <line nr="78" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="80" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="83" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="85" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="79" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="81" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="84" mi="0" ci="1" mb="0" cb="0" />
       <line nr="86" mi="0" ci="1" mb="0" cb="0" />
       <line nr="87" mi="0" ci="1" mb="0" cb="0" />
       <line nr="88" mi="0" ci="1" mb="0" cb="0" />
       <line nr="89" mi="0" ci="1" mb="0" cb="0" />
       <line nr="90" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="92" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="91" mi="0" ci="1" mb="0" cb="0" />
       <line nr="93" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="96" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="94" mi="0" ci="1" mb="0" cb="0" />
       <line nr="97" mi="0" ci="1" mb="0" cb="0" />
       <line nr="98" mi="0" ci="1" mb="0" cb="0" />
       <line nr="99" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="101" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="100" mi="0" ci="1" mb="0" cb="0" />
       <line nr="102" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="105" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="103" mi="0" ci="1" mb="0" cb="0" />
       <line nr="106" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="109" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="107" mi="0" ci="1" mb="0" cb="0" />
       <line nr="110" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="113" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="111" mi="0" ci="1" mb="0" cb="0" />
       <line nr="114" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="117" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="118" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="120" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="121" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="122" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="124" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="115" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="118" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="119" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="121" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="122" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="123" mi="0" ci="2" mb="0" cb="0" />
       <line nr="125" mi="0" ci="1" mb="0" cb="0" />
       <line nr="126" mi="0" ci="1" mb="0" cb="0" />
       <line nr="127" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="129" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="128" mi="0" ci="1" mb="0" cb="0" />
       <line nr="130" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="131" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="134" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="131" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="132" mi="0" ci="2" mb="0" cb="0" />
       <line nr="135" mi="0" ci="1" mb="0" cb="0" />
       <line nr="136" mi="0" ci="1" mb="0" cb="0" />
       <line nr="137" mi="0" ci="1" mb="0" cb="0" />
       <line nr="138" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="142" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="143" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="144" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="147" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="139" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="143" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="144" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="145" mi="0" ci="1" mb="0" cb="0" />
       <line nr="148" mi="0" ci="1" mb="0" cb="0" />
       <line nr="149" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="152" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="150" mi="0" ci="1" mb="0" cb="0" />
       <line nr="153" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="157" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="154" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="158" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="1" covered="69" />
       <counter type="LINE" missed="1" covered="62" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/Write-WtcgErrorJsonlLog.ps1">
-      <line nr="36" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="37" mi="1" ci="2" mb="0" cb="0" />
+      <line nr="37" mi="0" ci="1" mb="0" cb="0" />
       <line nr="38" mi="1" ci="2" mb="0" cb="0" />
-      <line nr="40" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="39" mi="1" ci="2" mb="0" cb="0" />
       <line nr="41" mi="0" ci="1" mb="0" cb="0" />
       <line nr="42" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="43" mi="1" ci="2" mb="0" cb="0" />
+      <line nr="43" mi="0" ci="1" mb="0" cb="0" />
       <line nr="44" mi="1" ci="2" mb="0" cb="0" />
-      <line nr="45" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="45" mi="1" ci="2" mb="0" cb="0" />
       <line nr="46" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="49" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="56" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="47" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="50" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="57" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="4" covered="16" />
       <counter type="LINE" missed="0" covered="12" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/Write-WtcgErrorXmlLog.ps1">
-      <line nr="36" mi="0" ci="1" mb="0" cb="0" />
       <line nr="37" mi="0" ci="1" mb="0" cb="0" />
       <line nr="38" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="39" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="42" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="39" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="40" mi="0" ci="2" mb="0" cb="0" />
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="44" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="1" mb="0" cb="0" />
       <line nr="45" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="47" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="46" mi="0" ci="3" mb="0" cb="0" />
       <line nr="48" mi="0" ci="1" mb="0" cb="0" />
       <line nr="49" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="51" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="54" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="50" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <line nr="55" mi="0" ci="1" mb="0" cb="0" />
       <line nr="56" mi="0" ci="1" mb="0" cb="0" />
       <line nr="57" mi="0" ci="1" mb="0" cb="0" />
       <line nr="58" mi="0" ci="1" mb="0" cb="0" />
       <line nr="59" mi="0" ci="1" mb="0" cb="0" />
       <line nr="60" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="62" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="61" mi="0" ci="1" mb="0" cb="0" />
       <line nr="63" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="66" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="64" mi="0" ci="1" mb="0" cb="0" />
       <line nr="67" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="70" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="68" mi="0" ci="1" mb="0" cb="0" />
       <line nr="71" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="74" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="72" mi="0" ci="1" mb="0" cb="0" />
       <line nr="75" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="77" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="76" mi="0" ci="1" mb="0" cb="0" />
       <line nr="78" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="81" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="82" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="85" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="87" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="90" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="79" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="82" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="83" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="86" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="88" mi="0" ci="1" mb="0" cb="0" />
       <line nr="91" mi="0" ci="1" mb="0" cb="0" />
       <line nr="92" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="95" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="93" mi="0" ci="1" mb="0" cb="0" />
       <line nr="96" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="100" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="97" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="101" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="45" />
       <counter type="LINE" missed="0" covered="39" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/Write-WtcgJsonlEvent.ps1">
-      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="18" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="19" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="16" mi="0" ci="1" mb="0" cb="0" />
       <line nr="20" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="21" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="22" mi="0" ci="1" mb="0" cb="0" />
       <line nr="28" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="29" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="32" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="33" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="34" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="37" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="30" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="31" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="34" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="35" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="36" mi="0" ci="2" mb="0" cb="0" />
       <line nr="39" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="42" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="40" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="41" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="1" covered="15" />
       <counter type="LINE" missed="1" covered="13" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/Write-WtcgNotificationJsonlLog.ps1">
-      <line nr="67" mi="0" ci="1" mb="0" cb="0" />
       <line nr="68" mi="0" ci="1" mb="0" cb="0" />
       <line nr="69" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="70" mi="0" ci="4" mb="0" cb="0" />
+      <line nr="70" mi="0" ci="1" mb="0" cb="0" />
       <line nr="71" mi="0" ci="4" mb="0" cb="0" />
-      <line nr="72" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="72" mi="0" ci="4" mb="0" cb="0" />
       <line nr="73" mi="0" ci="1" mb="0" cb="0" />
       <line nr="74" mi="0" ci="1" mb="0" cb="0" />
       <line nr="75" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="78" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="85" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="76" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="79" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="86" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="17" />
       <counter type="LINE" missed="0" covered="11" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Logging/Write-WtcgReenableJsonlLog.ps1">
-      <line nr="37" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="41" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
       <line nr="42" mi="0" ci="1" mb="0" cb="0" />
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="49" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="50" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="51" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="53" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="50" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="51" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="2" mb="0" cb="0" />
       <line nr="54" mi="0" ci="1" mb="0" cb="0" />
       <line nr="55" mi="0" ci="1" mb="0" cb="0" />
       <line nr="56" mi="0" ci="1" mb="0" cb="0" />
       <line nr="57" mi="0" ci="1" mb="0" cb="0" />
       <line nr="58" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="61" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="70" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="59" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="62" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="71" mi="0" ci="2" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="19" />
       <counter type="LINE" missed="0" covered="15" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -665,12 +665,12 @@
     </class>
     <class name="WinTaskCrossingGuard/Notifications/ConvertTo-WtcgWebhookTargetSettings" sourcefilename="Notifications/ConvertTo-WtcgWebhookTargetSettings.ps1">
       <method name="ConvertTo-WtcgWebhookTargetSettings" desc="()" line="21">
-        <counter type="INSTRUCTION" missed="1" covered="24" />
-        <counter type="LINE" missed="1" covered="15" />
+        <counter type="INSTRUCTION" missed="1" covered="29" />
+        <counter type="LINE" missed="1" covered="20" />
         <counter type="METHOD" missed="0" covered="1" />
       </method>
-      <counter type="INSTRUCTION" missed="1" covered="24" />
-      <counter type="LINE" missed="1" covered="15" />
+      <counter type="INSTRUCTION" missed="1" covered="29" />
+      <counter type="LINE" missed="1" covered="20" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </class>
@@ -741,7 +741,7 @@
       <counter type="CLASS" missed="1" covered="0" />
     </class>
     <class name="WinTaskCrossingGuard/Notifications/New-WtcgErrorMailBody" sourcefilename="Notifications/New-WtcgErrorMailBody.ps1">
-      <method name="New-WtcgErrorMailBody" desc="()" line="90">
+      <method name="New-WtcgErrorMailBody" desc="()" line="91">
         <counter type="INSTRUCTION" missed="2" covered="9" />
         <counter type="LINE" missed="0" covered="7" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -752,7 +752,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Notifications/New-WtcgLogGeneratedMailBody" sourcefilename="Notifications/New-WtcgLogGeneratedMailBody.ps1">
-      <method name="New-WtcgLogGeneratedMailBody" desc="()" line="33">
+      <method name="New-WtcgLogGeneratedMailBody" desc="()" line="34">
         <counter type="INSTRUCTION" missed="0" covered="2" />
         <counter type="LINE" missed="0" covered="2" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -763,7 +763,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Notifications/New-WtcgWebhookNotificationText" sourcefilename="Notifications/New-WtcgWebhookNotificationText.ps1">
-      <method name="New-WtcgWebhookNotificationText" desc="()" line="50">
+      <method name="New-WtcgWebhookNotificationText" desc="()" line="51">
         <counter type="INSTRUCTION" missed="3" covered="16" />
         <counter type="LINE" missed="0" covered="11" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -774,7 +774,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Notifications/New-WtcgWebhookPayload" sourcefilename="Notifications/New-WtcgWebhookPayload.ps1">
-      <method name="New-WtcgWebhookPayload" desc="()" line="12">
+      <method name="New-WtcgWebhookPayload" desc="()" line="13">
         <counter type="INSTRUCTION" missed="0" covered="10" />
         <counter type="LINE" missed="0" covered="8" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -974,23 +974,28 @@
     </sourcefile>
     <sourcefile name="Notifications/ConvertTo-WtcgWebhookTargetSettings.ps1">
       <line nr="21" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="22" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="23" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="24" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="25" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="27" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="28" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="29" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="30" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="22" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="23" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="24" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="25" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="28" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="29" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="30" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="31" mi="0" ci="2" mb="0" cb="0" />
       <line nr="33" mi="0" ci="1" mb="0" cb="0" />
       <line nr="34" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="35" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="36" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="37" mi="0" ci="4" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="35" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="36" mi="1" ci="0" mb="0" cb="0" />
       <line nr="39" mi="0" ci="1" mb="0" cb="0" />
-      <counter type="INSTRUCTION" missed="1" covered="24" />
-      <counter type="LINE" missed="1" covered="15" />
+      <line nr="40" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="41" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="42" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="43" mi="0" ci="4" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="45" mi="0" ci="1" mb="0" cb="0" />
+      <counter type="INSTRUCTION" missed="1" covered="29" />
+      <counter type="LINE" missed="1" covered="20" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
@@ -1095,52 +1100,52 @@
       <counter type="CLASS" missed="1" covered="0" />
     </sourcefile>
     <sourcefile name="Notifications/New-WtcgErrorMailBody.ps1">
-      <line nr="90" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="91" mi="1" ci="2" mb="0" cb="0" />
+      <line nr="91" mi="0" ci="1" mb="0" cb="0" />
       <line nr="92" mi="1" ci="2" mb="0" cb="0" />
-      <line nr="94" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="104" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="119" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="128" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="93" mi="1" ci="2" mb="0" cb="0" />
+      <line nr="95" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="105" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="120" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="129" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="2" covered="9" />
       <counter type="LINE" missed="0" covered="7" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Notifications/New-WtcgLogGeneratedMailBody.ps1">
-      <line nr="33" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="43" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="34" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="2" />
       <counter type="LINE" missed="0" covered="2" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Notifications/New-WtcgWebhookNotificationText.ps1">
-      <line nr="50" mi="0" ci="1" mb="0" cb="0" />
       <line nr="51" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="52" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <line nr="53" mi="0" ci="2" mb="0" cb="0" />
       <line nr="54" mi="0" ci="2" mb="0" cb="0" />
       <line nr="55" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="56" mi="1" ci="1" mb="0" cb="0" />
-      <line nr="57" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="58" mi="1" ci="1" mb="0" cb="0" />
+      <line nr="56" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="57" mi="1" ci="1" mb="0" cb="0" />
+      <line nr="58" mi="0" ci="2" mb="0" cb="0" />
       <line nr="59" mi="1" ci="1" mb="0" cb="0" />
-      <line nr="61" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="60" mi="1" ci="1" mb="0" cb="0" />
+      <line nr="62" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="3" covered="16" />
       <counter type="LINE" missed="0" covered="11" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Notifications/New-WtcgWebhookPayload.ps1">
-      <line nr="12" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="13" mi="0" ci="1" mb="0" cb="0" />
       <line nr="15" mi="0" ci="1" mb="0" cb="0" />
       <line nr="16" mi="0" ci="1" mb="0" cb="0" />
       <line nr="17" mi="0" ci="1" mb="0" cb="0" />
       <line nr="18" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="21" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="19" mi="0" ci="1" mb="0" cb="0" />
       <line nr="22" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="23" mi="0" ci="2" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="10" />
       <counter type="LINE" missed="0" covered="8" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -1342,8 +1347,8 @@
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
-    <counter type="INSTRUCTION" missed="77" covered="385" />
-    <counter type="LINE" missed="46" covered="275" />
+    <counter type="INSTRUCTION" missed="77" covered="390" />
+    <counter type="LINE" missed="46" covered="280" />
     <counter type="METHOD" missed="2" covered="21" />
     <counter type="CLASS" missed="2" covered="21" />
   </package>
@@ -1415,7 +1420,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Private/Import-WtcgDotEnv" sourcefilename="Private/Import-WtcgDotEnv.ps1">
-      <method name="Import-WtcgDotEnv" desc="()" line="7">
+      <method name="Import-WtcgDotEnv" desc="()" line="8">
         <counter type="INSTRUCTION" missed="2" covered="23" />
         <counter type="LINE" missed="1" covered="21" />
         <counter type="METHOD" missed="1" covered="0" />
@@ -1426,7 +1431,7 @@
       <counter type="CLASS" missed="1" covered="0" />
     </class>
     <class name="WinTaskCrossingGuard/Private/Normalize-WtcgTaskPath" sourcefilename="Private/Normalize-WtcgTaskPath.ps1">
-      <method name="Normalize-WtcgTaskPath" desc="()" line="10">
+      <method name="Normalize-WtcgTaskPath" desc="()" line="11">
         <counter type="INSTRUCTION" missed="0" covered="8" />
         <counter type="LINE" missed="0" covered="8" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -1559,42 +1564,42 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Private/Import-WtcgDotEnv.ps1">
-      <line nr="7" mi="2" ci="0" mb="0" cb="0" />
-      <line nr="10" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="12" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="13" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="16" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="18" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="8" mi="2" ci="0" mb="0" cb="0" />
+      <line nr="11" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="13" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="17" mi="0" ci="1" mb="0" cb="0" />
       <line nr="19" mi="0" ci="1" mb="0" cb="0" />
       <line nr="20" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="22" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="30" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="21" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="23" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="27" mi="0" ci="1" mb="0" cb="0" />
       <line nr="31" mi="0" ci="1" mb="0" cb="0" />
       <line nr="32" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="35" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="33" mi="0" ci="1" mb="0" cb="0" />
       <line nr="36" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="37" mi="0" ci="1" mb="0" cb="0" />
       <line nr="39" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="42" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="43" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="40" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="43" mi="0" ci="2" mb="0" cb="0" />
       <line nr="44" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="47" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="50" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="45" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="48" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="51" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="2" covered="23" />
       <counter type="LINE" missed="1" covered="21" />
       <counter type="METHOD" missed="1" covered="0" />
       <counter type="CLASS" missed="1" covered="0" />
     </sourcefile>
     <sourcefile name="Private/Normalize-WtcgTaskPath.ps1">
-      <line nr="10" mi="0" ci="1" mb="0" cb="0" />
       <line nr="11" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="16" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="12" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="15" mi="0" ci="1" mb="0" cb="0" />
       <line nr="17" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="20" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="18" mi="0" ci="1" mb="0" cb="0" />
       <line nr="21" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="24" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="22" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="25" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="8" />
       <counter type="LINE" missed="0" covered="8" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -1696,7 +1701,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Public/Save-WtcgManifest" sourcefilename="Public/Save-WtcgManifest.ps1">
-      <method name="Save-WtcgManifest" desc="()" line="32">
+      <method name="Save-WtcgManifest" desc="()" line="33">
         <counter type="INSTRUCTION" missed="0" covered="43" />
         <counter type="LINE" missed="0" covered="34" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2019,40 +2024,40 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Public/Save-WtcgManifest.ps1">
-      <line nr="32" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="36" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="37" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="33" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="37" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="38" mi="0" ci="2" mb="0" cb="0" />
       <line nr="39" mi="0" ci="1" mb="0" cb="0" />
       <line nr="40" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="41" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="42" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="43" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="41" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="42" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="43" mi="0" ci="1" mb="0" cb="0" />
       <line nr="44" mi="0" ci="2" mb="0" cb="0" />
       <line nr="45" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="46" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="46" mi="0" ci="2" mb="0" cb="0" />
       <line nr="47" mi="0" ci="1" mb="0" cb="0" />
       <line nr="48" mi="0" ci="1" mb="0" cb="0" />
       <line nr="49" mi="0" ci="1" mb="0" cb="0" />
       <line nr="50" mi="0" ci="1" mb="0" cb="0" />
       <line nr="51" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="57" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <line nr="58" mi="0" ci="1" mb="0" cb="0" />
       <line nr="59" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="60" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="61" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="60" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="61" mi="0" ci="2" mb="0" cb="0" />
       <line nr="62" mi="0" ci="1" mb="0" cb="0" />
       <line nr="63" mi="0" ci="1" mb="0" cb="0" />
       <line nr="64" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="65" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="66" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="69" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="65" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="66" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="67" mi="0" ci="1" mb="0" cb="0" />
       <line nr="70" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="71" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="74" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="71" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="72" mi="0" ci="2" mb="0" cb="0" />
       <line nr="75" mi="0" ci="1" mb="0" cb="0" />
       <line nr="76" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="78" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="77" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="79" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="43" />
       <counter type="LINE" missed="0" covered="34" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -2134,7 +2139,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/RunState/Import-WtcgRestoreArtifactTaskIdentity" sourcefilename="RunState/Import-WtcgRestoreArtifactTaskIdentity.ps1">
-      <method name="Import-WtcgRestoreArtifactTaskIdentity" desc="()" line="8">
+      <method name="Import-WtcgRestoreArtifactTaskIdentity" desc="()" line="9">
         <counter type="INSTRUCTION" missed="2" covered="29" />
         <counter type="LINE" missed="2" covered="19" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2145,7 +2150,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/RunState/New-WtcgRunContext" sourcefilename="RunState/New-WtcgRunContext.ps1">
-      <method name="New-WtcgRunContext" desc="()" line="25">
+      <method name="New-WtcgRunContext" desc="()" line="26">
         <counter type="INSTRUCTION" missed="1" covered="56" />
         <counter type="LINE" missed="1" covered="49" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2156,7 +2161,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/RunState/New-WtcgRunId" sourcefilename="RunState/New-WtcgRunId.ps1">
-      <method name="New-WtcgRunId" desc="()" line="9">
+      <method name="New-WtcgRunId" desc="()" line="10">
         <counter type="INSTRUCTION" missed="0" covered="3" />
         <counter type="LINE" missed="0" covered="3" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2167,7 +2172,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/RunState/New-WtcgRuntimeLockName" sourcefilename="RunState/New-WtcgRuntimeLockName.ps1">
-      <method name="New-WtcgRuntimeLockName" desc="()" line="10">
+      <method name="New-WtcgRuntimeLockName" desc="()" line="11">
         <counter type="INSTRUCTION" missed="2" covered="4" />
         <counter type="LINE" missed="2" covered="4" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2211,7 +2216,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/RunState/Save-WtcgRunReport" sourcefilename="RunState/Save-WtcgRunReport.ps1">
-      <method name="Save-WtcgRunReport" desc="()" line="27">
+      <method name="Save-WtcgRunReport" desc="()" line="28">
         <counter type="INSTRUCTION" missed="0" covered="23" />
         <counter type="LINE" missed="0" covered="18" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2372,49 +2377,48 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="RunState/Import-WtcgRestoreArtifactTaskIdentity.ps1">
-      <line nr="8" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="9" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="12" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="13" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="9" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="10" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="13" mi="0" ci="2" mb="0" cb="0" />
       <line nr="14" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="15" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="18" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="19" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="23" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="24" mi="0" ci="5" mb="0" cb="0" />
-      <line nr="28" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="29" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="15" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="16" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="19" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="20" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="24" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="25" mi="0" ci="5" mb="0" cb="0" />
+      <line nr="29" mi="0" ci="1" mb="0" cb="0" />
       <line nr="30" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="31" mi="0" ci="2" mb="0" cb="0" />
       <line nr="32" mi="0" ci="1" mb="0" cb="0" />
       <line nr="33" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="36" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="34" mi="0" ci="1" mb="0" cb="0" />
       <line nr="37" mi="0" ci="1" mb="0" cb="0" />
       <line nr="38" mi="0" ci="1" mb="0" cb="0" />
       <line nr="39" mi="0" ci="1" mb="0" cb="0" />
       <line nr="40" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="41" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="2" covered="29" />
       <counter type="LINE" missed="2" covered="19" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="RunState/New-WtcgRunContext.ps1">
-      <line nr="25" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="28" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="29" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="32" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="35" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="29" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="30" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="32" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="33" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="36" mi="0" ci="2" mb="0" cb="0" />
       <line nr="39" mi="0" ci="1" mb="0" cb="0" />
       <line nr="40" mi="0" ci="1" mb="0" cb="0" />
       <line nr="41" mi="0" ci="1" mb="0" cb="0" />
       <line nr="42" mi="0" ci="1" mb="0" cb="0" />
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="45" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="46" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="47" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="51" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="46" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="47" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="48" mi="0" ci="2" mb="0" cb="0" />
       <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <line nr="53" mi="0" ci="1" mb="0" cb="0" />
       <line nr="54" mi="0" ci="1" mb="0" cb="0" />
@@ -2427,7 +2431,7 @@
       <line nr="61" mi="0" ci="1" mb="0" cb="0" />
       <line nr="62" mi="0" ci="1" mb="0" cb="0" />
       <line nr="63" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="66" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="64" mi="0" ci="1" mb="0" cb="0" />
       <line nr="67" mi="0" ci="1" mb="0" cb="0" />
       <line nr="68" mi="0" ci="1" mb="0" cb="0" />
       <line nr="69" mi="0" ci="1" mb="0" cb="0" />
@@ -2446,30 +2450,31 @@
       <line nr="82" mi="0" ci="1" mb="0" cb="0" />
       <line nr="83" mi="0" ci="1" mb="0" cb="0" />
       <line nr="84" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="86" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="88" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="89" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="85" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="87" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="89" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="90" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="1" covered="56" />
       <counter type="LINE" missed="1" covered="49" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="RunState/New-WtcgRunId.ps1">
-      <line nr="9" mi="0" ci="1" mb="0" cb="0" />
       <line nr="10" mi="0" ci="1" mb="0" cb="0" />
       <line nr="11" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="12" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="3" />
       <counter type="LINE" missed="0" covered="3" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="RunState/New-WtcgRuntimeLockName.ps1">
-      <line nr="10" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="11" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="11" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="12" mi="1" ci="0" mb="0" cb="0" />
       <line nr="15" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="16" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="19" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="16" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="17" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="20" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="2" covered="4" />
       <counter type="LINE" missed="2" covered="4" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -2517,24 +2522,24 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="RunState/Save-WtcgRunReport.ps1">
-      <line nr="27" mi="0" ci="1" mb="0" cb="0" />
       <line nr="28" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="29" mi="0" ci="1" mb="0" cb="0" />
       <line nr="32" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="35" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="33" mi="0" ci="1" mb="0" cb="0" />
       <line nr="36" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="37" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="40" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="37" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="38" mi="0" ci="2" mb="0" cb="0" />
       <line nr="41" mi="0" ci="1" mb="0" cb="0" />
       <line nr="42" mi="0" ci="1" mb="0" cb="0" />
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
       <line nr="44" mi="0" ci="1" mb="0" cb="0" />
       <line nr="45" mi="0" ci="1" mb="0" cb="0" />
       <line nr="46" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="47" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="48" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="49" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="51" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="47" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="48" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="49" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="50" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="23" />
       <counter type="LINE" missed="0" covered="18" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -2595,12 +2600,12 @@
     </class>
     <class name="WinTaskCrossingGuard/Scheduling/Get-WtcgActivePriorReenableRun" sourcefilename="Scheduling/Get-WtcgActivePriorReenableRun.ps1">
       <method name="Get-WtcgActivePriorReenableRun" desc="()" line="20">
-        <counter type="INSTRUCTION" missed="6" covered="49" />
-        <counter type="LINE" missed="6" covered="41" />
+        <counter type="INSTRUCTION" missed="10" covered="49" />
+        <counter type="LINE" missed="8" covered="41" />
         <counter type="METHOD" missed="0" covered="1" />
       </method>
-      <counter type="INSTRUCTION" missed="6" covered="49" />
-      <counter type="LINE" missed="6" covered="41" />
+      <counter type="INSTRUCTION" missed="10" covered="49" />
+      <counter type="LINE" missed="8" covered="41" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </class>
@@ -2638,7 +2643,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Scheduling/Import-WtcgReenableManifestSummary" sourcefilename="Scheduling/Import-WtcgReenableManifestSummary.ps1">
-      <method name="Import-WtcgReenableManifestSummary" desc="()" line="10">
+      <method name="Import-WtcgReenableManifestSummary" desc="()" line="11">
         <counter type="INSTRUCTION" missed="2" covered="37" />
         <counter type="LINE" missed="2" covered="30" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2716,40 +2721,42 @@
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
       <line nr="44" mi="0" ci="1" mb="0" cb="0" />
       <line nr="50" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="55" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="59" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="60" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="61" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="62" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="53" mi="2" ci="0" mb="0" cb="0" />
+      <line nr="57" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="60" mi="2" ci="0" mb="0" cb="0" />
+      <line nr="63" mi="0" ci="1" mb="0" cb="0" />
       <line nr="64" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="65" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="68" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="69" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="75" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="65" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="66" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="68" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="69" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="72" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="73" mi="0" ci="1" mb="0" cb="0" />
       <line nr="79" mi="0" ci="1" mb="0" cb="0" />
       <line nr="83" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="84" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="86" mi="0" ci="1" mb="0" cb="0" />
       <line nr="87" mi="0" ci="1" mb="0" cb="0" />
       <line nr="88" mi="0" ci="1" mb="0" cb="0" />
       <line nr="90" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="91" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="92" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="95" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="96" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="97" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="98" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="91" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="92" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="94" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="95" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="96" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="99" mi="0" ci="1" mb="0" cb="0" />
       <line nr="100" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="101" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="101" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="102" mi="1" ci="0" mb="0" cb="0" />
       <line nr="104" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="109" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="110" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="105" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="108" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="113" mi="0" ci="1" mb="0" cb="0" />
       <line nr="114" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="115" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="116" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="118" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="119" mi="0" ci="2" mb="0" cb="0" />
       <line nr="120" mi="0" ci="1" mb="0" cb="0" />
-      <counter type="INSTRUCTION" missed="6" covered="49" />
-      <counter type="LINE" missed="6" covered="41" />
+      <line nr="124" mi="0" ci="1" mb="0" cb="0" />
+      <counter type="INSTRUCTION" missed="10" covered="49" />
+      <counter type="LINE" missed="8" covered="41" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
@@ -2857,9 +2864,8 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Scheduling/Import-WtcgReenableManifestSummary.ps1">
-      <line nr="10" mi="0" ci="1" mb="0" cb="0" />
       <line nr="11" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="12" mi="0" ci="1" mb="0" cb="0" />
       <line nr="15" mi="0" ci="1" mb="0" cb="0" />
       <line nr="16" mi="0" ci="1" mb="0" cb="0" />
       <line nr="17" mi="0" ci="1" mb="0" cb="0" />
@@ -2870,25 +2876,26 @@
       <line nr="22" mi="0" ci="1" mb="0" cb="0" />
       <line nr="23" mi="0" ci="1" mb="0" cb="0" />
       <line nr="24" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="27" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="28" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="34" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="35" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="25" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="28" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="29" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="32" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="35" mi="0" ci="2" mb="0" cb="0" />
       <line nr="36" mi="0" ci="1" mb="0" cb="0" />
       <line nr="37" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
       <line nr="39" mi="0" ci="2" mb="0" cb="0" />
       <line nr="40" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="42" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="41" mi="0" ci="2" mb="0" cb="0" />
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="44" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="45" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="45" mi="0" ci="2" mb="0" cb="0" />
       <line nr="46" mi="0" ci="1" mb="0" cb="0" />
       <line nr="47" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="50" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="53" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="56" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="48" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="51" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="54" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="57" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="2" covered="37" />
       <counter type="LINE" missed="2" covered="30" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -2919,8 +2926,8 @@
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
-    <counter type="INSTRUCTION" missed="22" covered="193" />
-    <counter type="LINE" missed="20" covered="164" />
+    <counter type="INSTRUCTION" missed="26" covered="193" />
+    <counter type="LINE" missed="22" covered="164" />
     <counter type="METHOD" missed="3" covered="6" />
     <counter type="CLASS" missed="3" covered="6" />
   </package>
@@ -2948,7 +2955,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Selection/Export-WtcgTaskIdentity" sourcefilename="Selection/Export-WtcgTaskIdentity.ps1">
-      <method name="Export-WtcgTaskIdentity" desc="()" line="25">
+      <method name="Export-WtcgTaskIdentity" desc="()" line="26">
         <counter type="INSTRUCTION" missed="0" covered="36" />
         <counter type="LINE" missed="0" covered="30" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2981,7 +2988,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Selection/Import-WtcgTaskIdentity" sourcefilename="Selection/Import-WtcgTaskIdentity.ps1">
-      <method name="Import-WtcgTaskIdentity" desc="()" line="8">
+      <method name="Import-WtcgTaskIdentity" desc="()" line="9">
         <counter type="INSTRUCTION" missed="0" covered="29" />
         <counter type="LINE" missed="0" covered="19" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -2992,7 +2999,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Selection/Import-WtcgTaskSelection" sourcefilename="Selection/Import-WtcgTaskSelection.ps1">
-      <method name="Import-WtcgTaskSelection" desc="()" line="8">
+      <method name="Import-WtcgTaskSelection" desc="()" line="9">
         <counter type="INSTRUCTION" missed="0" covered="88" />
         <counter type="LINE" missed="0" covered="64" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3003,7 +3010,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Selection/New-WtcgFolderSelection" sourcefilename="Selection/New-WtcgFolderSelection.ps1">
-      <method name="New-WtcgFolderSelection" desc="()" line="11">
+      <method name="New-WtcgFolderSelection" desc="()" line="12">
         <counter type="INSTRUCTION" missed="0" covered="3" />
         <counter type="LINE" missed="0" covered="3" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3014,7 +3021,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Selection/New-WtcgTaskIdentity" sourcefilename="Selection/New-WtcgTaskIdentity.ps1">
-      <method name="New-WtcgTaskIdentity" desc="()" line="51">
+      <method name="New-WtcgTaskIdentity" desc="()" line="52">
         <counter type="INSTRUCTION" missed="0" covered="22" />
         <counter type="LINE" missed="0" covered="18" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3107,36 +3114,36 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Selection/Export-WtcgTaskIdentity.ps1">
-      <line nr="25" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="29" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="30" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="30" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="31" mi="0" ci="2" mb="0" cb="0" />
       <line nr="32" mi="0" ci="1" mb="0" cb="0" />
       <line nr="33" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="34" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="35" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="34" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="35" mi="0" ci="2" mb="0" cb="0" />
       <line nr="36" mi="0" ci="1" mb="0" cb="0" />
       <line nr="37" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
       <line nr="39" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="40" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="40" mi="0" ci="2" mb="0" cb="0" />
       <line nr="41" mi="0" ci="1" mb="0" cb="0" />
       <line nr="42" mi="0" ci="1" mb="0" cb="0" />
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
       <line nr="44" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="50" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="45" mi="0" ci="1" mb="0" cb="0" />
       <line nr="51" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="52" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="53" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="53" mi="0" ci="2" mb="0" cb="0" />
       <line nr="54" mi="0" ci="1" mb="0" cb="0" />
       <line nr="55" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="58" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="56" mi="0" ci="1" mb="0" cb="0" />
       <line nr="59" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="60" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="63" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="60" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="61" mi="0" ci="2" mb="0" cb="0" />
       <line nr="64" mi="0" ci="1" mb="0" cb="0" />
       <line nr="65" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="67" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="66" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="68" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="36" />
       <counter type="LINE" missed="0" covered="30" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -3202,85 +3209,84 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Selection/Import-WtcgTaskIdentity.ps1">
-      <line nr="8" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="9" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="12" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="15" mi="0" ci="5" mb="0" cb="0" />
-      <line nr="17" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="9" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="10" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="13" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="15" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="16" mi="0" ci="5" mb="0" cb="0" />
       <line nr="18" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="19" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="19" mi="0" ci="1" mb="0" cb="0" />
       <line nr="20" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="21" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="21" mi="0" ci="2" mb="0" cb="0" />
       <line nr="22" mi="0" ci="1" mb="0" cb="0" />
       <line nr="23" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="24" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="24" mi="0" ci="1" mb="0" cb="0" />
       <line nr="25" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="26" mi="0" ci="2" mb="0" cb="0" />
       <line nr="27" mi="0" ci="1" mb="0" cb="0" />
       <line nr="28" mi="0" ci="1" mb="0" cb="0" />
       <line nr="29" mi="0" ci="1" mb="0" cb="0" />
       <line nr="30" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="29" />
       <counter type="LINE" missed="0" covered="19" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Selection/Import-WtcgTaskSelection.ps1">
-      <line nr="8" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="9" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="13" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="16" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="19" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="9" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="10" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="14" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="17" mi="0" ci="2" mb="0" cb="0" />
       <line nr="20" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="22" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="21" mi="0" ci="2" mb="0" cb="0" />
       <line nr="23" mi="0" ci="1" mb="0" cb="0" />
       <line nr="24" mi="0" ci="1" mb="0" cb="0" />
       <line nr="25" mi="0" ci="1" mb="0" cb="0" />
       <line nr="26" mi="0" ci="1" mb="0" cb="0" />
       <line nr="27" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="28" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="28" mi="0" ci="1" mb="0" cb="0" />
       <line nr="29" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="30" mi="0" ci="2" mb="0" cb="0" />
       <line nr="32" mi="0" ci="1" mb="0" cb="0" />
       <line nr="33" mi="0" ci="1" mb="0" cb="0" />
       <line nr="34" mi="0" ci="1" mb="0" cb="0" />
       <line nr="35" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="39" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="36" mi="0" ci="1" mb="0" cb="0" />
       <line nr="40" mi="0" ci="1" mb="0" cb="0" />
       <line nr="41" mi="0" ci="1" mb="0" cb="0" />
       <line nr="42" mi="0" ci="1" mb="0" cb="0" />
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="47" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="1" mb="0" cb="0" />
       <line nr="48" mi="0" ci="1" mb="0" cb="0" />
       <line nr="49" mi="0" ci="1" mb="0" cb="0" />
       <line nr="50" mi="0" ci="1" mb="0" cb="0" />
       <line nr="51" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="55" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <line nr="56" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="57" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="58" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="59" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="60" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="65" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="57" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="58" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="59" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="60" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="61" mi="0" ci="2" mb="0" cb="0" />
       <line nr="66" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="67" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="68" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="69" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="70" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="75" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="67" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="68" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="69" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="70" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="71" mi="0" ci="2" mb="0" cb="0" />
       <line nr="76" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="77" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="78" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="79" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="80" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="85" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="77" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="78" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="79" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="80" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="81" mi="0" ci="2" mb="0" cb="0" />
       <line nr="86" mi="0" ci="1" mb="0" cb="0" />
       <line nr="87" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="91" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="88" mi="0" ci="1" mb="0" cb="0" />
       <line nr="92" mi="0" ci="1" mb="0" cb="0" />
       <line nr="93" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="97" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="94" mi="0" ci="1" mb="0" cb="0" />
       <line nr="98" mi="0" ci="1" mb="0" cb="0" />
       <line nr="99" mi="0" ci="1" mb="0" cb="0" />
       <line nr="100" mi="0" ci="1" mb="0" cb="0" />
@@ -3289,27 +3295,27 @@
       <line nr="103" mi="0" ci="1" mb="0" cb="0" />
       <line nr="104" mi="0" ci="1" mb="0" cb="0" />
       <line nr="105" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="106" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="106" mi="0" ci="1" mb="0" cb="0" />
       <line nr="107" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="108" mi="0" ci="2" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="88" />
       <counter type="LINE" missed="0" covered="64" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Selection/New-WtcgFolderSelection.ps1">
-      <line nr="11" mi="0" ci="1" mb="0" cb="0" />
       <line nr="12" mi="0" ci="1" mb="0" cb="0" />
       <line nr="13" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="3" />
       <counter type="LINE" missed="0" covered="3" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Selection/New-WtcgTaskIdentity.ps1">
-      <line nr="51" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="52" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <line nr="53" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="55" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="54" mi="0" ci="3" mb="0" cb="0" />
       <line nr="56" mi="0" ci="1" mb="0" cb="0" />
       <line nr="57" mi="0" ci="1" mb="0" cb="0" />
       <line nr="58" mi="0" ci="1" mb="0" cb="0" />
@@ -3324,6 +3330,7 @@
       <line nr="67" mi="0" ci="1" mb="0" cb="0" />
       <line nr="68" mi="0" ci="1" mb="0" cb="0" />
       <line nr="69" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="70" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="22" />
       <counter type="LINE" missed="0" covered="18" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -3426,7 +3433,7 @@
   </package>
   <package name="WinTaskCrossingGuard/Telemetry">
     <class name="WinTaskCrossingGuard/Telemetry/ConvertTo-WtcgAzureMonitorPayload" sourcefilename="Telemetry/ConvertTo-WtcgAzureMonitorPayload.ps1">
-      <method name="ConvertTo-WtcgAzureMonitorPayload" desc="()" line="18">
+      <method name="ConvertTo-WtcgAzureMonitorPayload" desc="()" line="19">
         <counter type="INSTRUCTION" missed="4" covered="24" />
         <counter type="LINE" missed="2" covered="20" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3448,7 +3455,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Telemetry/ConvertTo-WtcgDatadogLogPayload" sourcefilename="Telemetry/ConvertTo-WtcgDatadogLogPayload.ps1">
-      <method name="ConvertTo-WtcgDatadogLogPayload" desc="()" line="34">
+      <method name="ConvertTo-WtcgDatadogLogPayload" desc="()" line="35">
         <counter type="INSTRUCTION" missed="4" covered="28" />
         <counter type="LINE" missed="2" covered="24" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3459,7 +3466,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Telemetry/ConvertTo-WtcgElasticBulkPayload" sourcefilename="Telemetry/ConvertTo-WtcgElasticBulkPayload.ps1">
-      <method name="ConvertTo-WtcgElasticBulkPayload" desc="()" line="26">
+      <method name="ConvertTo-WtcgElasticBulkPayload" desc="()" line="27">
         <counter type="INSTRUCTION" missed="1" covered="32" />
         <counter type="LINE" missed="1" covered="23" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3492,7 +3499,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Telemetry/ConvertTo-WtcgSplunkHecPayload" sourcefilename="Telemetry/ConvertTo-WtcgSplunkHecPayload.ps1">
-      <method name="ConvertTo-WtcgSplunkHecPayload" desc="()" line="33">
+      <method name="ConvertTo-WtcgSplunkHecPayload" desc="()" line="34">
         <counter type="INSTRUCTION" missed="5" covered="41" />
         <counter type="LINE" missed="2" covered="30" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3602,7 +3609,7 @@
       <counter type="CLASS" missed="1" covered="0" />
     </class>
     <class name="WinTaskCrossingGuard/Telemetry/Import-WtcgJsonlEvent" sourcefilename="Telemetry/Import-WtcgJsonlEvent.ps1">
-      <method name="Import-WtcgJsonlEvent" desc="()" line="9">
+      <method name="Import-WtcgJsonlEvent" desc="()" line="10">
         <counter type="INSTRUCTION" missed="0" covered="11" />
         <counter type="LINE" missed="0" covered="8" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3679,7 +3686,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Telemetry/Save-WtcgTelemetryExportReport" sourcefilename="Telemetry/Save-WtcgTelemetryExportReport.ps1">
-      <method name="Save-WtcgTelemetryExportReport" desc="()" line="33">
+      <method name="Save-WtcgTelemetryExportReport" desc="()" line="34">
         <counter type="INSTRUCTION" missed="1" covered="26" />
         <counter type="LINE" missed="1" covered="18" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3690,7 +3697,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Telemetry/Select-WtcgTelemetryEvent" sourcefilename="Telemetry/Select-WtcgTelemetryEvent.ps1">
-      <method name="Select-WtcgTelemetryEvent" desc="()" line="14">
+      <method name="Select-WtcgTelemetryEvent" desc="()" line="15">
         <counter type="INSTRUCTION" missed="0" covered="5" />
         <counter type="LINE" missed="0" covered="3" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3712,7 +3719,7 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <class name="WinTaskCrossingGuard/Telemetry/Test-WtcgTelemetryEventAllowed" sourcefilename="Telemetry/Test-WtcgTelemetryEventAllowed.ps1">
-      <method name="Test-WtcgTelemetryEventAllowed" desc="()" line="13">
+      <method name="Test-WtcgTelemetryEventAllowed" desc="()" line="14">
         <counter type="INSTRUCTION" missed="1" covered="23" />
         <counter type="LINE" missed="1" covered="11" />
         <counter type="METHOD" missed="0" covered="1" />
@@ -3734,13 +3741,12 @@
       <counter type="CLASS" missed="0" covered="1" />
     </class>
     <sourcefile name="Telemetry/ConvertTo-WtcgAzureMonitorPayload.ps1">
-      <line nr="18" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="20" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="21" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="25" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="26" mi="2" ci="0" mb="0" cb="0" />
+      <line nr="19" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="21" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="22" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
       <line nr="27" mi="2" ci="0" mb="0" cb="0" />
-      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="28" mi="2" ci="0" mb="0" cb="0" />
       <line nr="32" mi="0" ci="1" mb="0" cb="0" />
       <line nr="33" mi="0" ci="1" mb="0" cb="0" />
       <line nr="34" mi="0" ci="1" mb="0" cb="0" />
@@ -3755,7 +3761,8 @@
       <line nr="43" mi="0" ci="1" mb="0" cb="0" />
       <line nr="44" mi="0" ci="1" mb="0" cb="0" />
       <line nr="45" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="49" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="46" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="50" mi="0" ci="2" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="4" covered="24" />
       <counter type="LINE" missed="2" covered="20" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -3779,20 +3786,19 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Telemetry/ConvertTo-WtcgDatadogLogPayload.ps1">
-      <line nr="34" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="35" mi="0" ci="1" mb="0" cb="0" />
       <line nr="39" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="40" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="46" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="47" mi="2" ci="0" mb="0" cb="0" />
+      <line nr="40" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="41" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="47" mi="0" ci="1" mb="0" cb="0" />
       <line nr="48" mi="2" ci="0" mb="0" cb="0" />
-      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="49" mi="2" ci="0" mb="0" cb="0" />
       <line nr="53" mi="0" ci="1" mb="0" cb="0" />
       <line nr="54" mi="0" ci="1" mb="0" cb="0" />
       <line nr="55" mi="0" ci="1" mb="0" cb="0" />
       <line nr="56" mi="0" ci="1" mb="0" cb="0" />
       <line nr="57" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="59" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="58" mi="0" ci="1" mb="0" cb="0" />
       <line nr="60" mi="0" ci="1" mb="0" cb="0" />
       <line nr="61" mi="0" ci="1" mb="0" cb="0" />
       <line nr="62" mi="0" ci="1" mb="0" cb="0" />
@@ -3802,39 +3808,40 @@
       <line nr="66" mi="0" ci="1" mb="0" cb="0" />
       <line nr="67" mi="0" ci="1" mb="0" cb="0" />
       <line nr="68" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="71" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="72" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="75" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="69" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="72" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="73" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="76" mi="0" ci="2" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="4" covered="28" />
       <counter type="LINE" missed="2" covered="24" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Telemetry/ConvertTo-WtcgElasticBulkPayload.ps1">
-      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="30" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="31" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="27" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="31" mi="0" ci="2" mb="0" cb="0" />
       <line nr="32" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="33" mi="0" ci="1" mb="0" cb="0" />
       <line nr="39" mi="0" ci="1" mb="0" cb="0" />
       <line nr="40" mi="0" ci="1" mb="0" cb="0" />
       <line nr="41" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="46" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="47" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="50" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="42" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="47" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="48" mi="1" ci="0" mb="0" cb="0" />
       <line nr="51" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="54" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="55" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="57" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="55" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="56" mi="0" ci="1" mb="0" cb="0" />
       <line nr="58" mi="0" ci="1" mb="0" cb="0" />
       <line nr="59" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="60" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="63" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="64" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="60" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="61" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="64" mi="0" ci="2" mb="0" cb="0" />
       <line nr="65" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="67" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="66" mi="0" ci="1" mb="0" cb="0" />
       <line nr="68" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="71" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="69" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="72" mi="0" ci="3" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="1" covered="32" />
       <counter type="LINE" missed="1" covered="23" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -3881,38 +3888,38 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Telemetry/ConvertTo-WtcgSplunkHecPayload.ps1">
-      <line nr="33" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="35" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="36" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="40" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="41" mi="2" ci="0" mb="0" cb="0" />
+      <line nr="34" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="36" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="37" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="41" mi="0" ci="1" mb="0" cb="0" />
       <line nr="42" mi="2" ci="0" mb="0" cb="0" />
-      <line nr="46" mi="1" ci="1" mb="0" cb="0" />
-      <line nr="52" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="43" mi="2" ci="0" mb="0" cb="0" />
+      <line nr="47" mi="1" ci="1" mb="0" cb="0" />
       <line nr="53" mi="0" ci="1" mb="0" cb="0" />
       <line nr="54" mi="0" ci="1" mb="0" cb="0" />
       <line nr="55" mi="0" ci="1" mb="0" cb="0" />
       <line nr="56" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="62" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="57" mi="0" ci="1" mb="0" cb="0" />
       <line nr="63" mi="0" ci="2" mb="0" cb="0" />
       <line nr="64" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="66" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="65" mi="0" ci="2" mb="0" cb="0" />
       <line nr="67" mi="0" ci="1" mb="0" cb="0" />
       <line nr="68" mi="0" ci="1" mb="0" cb="0" />
       <line nr="69" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="71" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="72" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="73" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="75" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="76" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="77" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="79" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="80" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="83" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="84" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="70" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="72" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="73" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="74" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="76" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="77" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="78" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="80" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="81" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="84" mi="0" ci="2" mb="0" cb="0" />
       <line nr="85" mi="0" ci="1" mb="0" cb="0" />
       <line nr="86" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="89" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="87" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="90" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="5" covered="41" />
       <counter type="LINE" missed="2" covered="30" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -4180,14 +4187,14 @@
       <counter type="CLASS" missed="1" covered="0" />
     </sourcefile>
     <sourcefile name="Telemetry/Import-WtcgJsonlEvent.ps1">
-      <line nr="9" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="10" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="13" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="10" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="11" mi="0" ci="1" mb="0" cb="0" />
       <line nr="14" mi="0" ci="1" mb="0" cb="0" />
       <line nr="15" mi="0" ci="1" mb="0" cb="0" />
       <line nr="16" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="21" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="24" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="17" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="22" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="25" mi="0" ci="2" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="11" />
       <counter type="LINE" missed="0" covered="8" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -4407,34 +4414,34 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Telemetry/Save-WtcgTelemetryExportReport.ps1">
-      <line nr="33" mi="0" ci="1" mb="0" cb="0" />
       <line nr="34" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="37" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="38" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="41" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="35" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="38" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="39" mi="1" ci="0" mb="0" cb="0" />
       <line nr="42" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="43" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="46" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="43" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="44" mi="0" ci="2" mb="0" cb="0" />
       <line nr="47" mi="0" ci="1" mb="0" cb="0" />
       <line nr="48" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="49" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="49" mi="0" ci="1" mb="0" cb="0" />
       <line nr="50" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="51" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="51" mi="0" ci="3" mb="0" cb="0" />
       <line nr="52" mi="0" ci="1" mb="0" cb="0" />
       <line nr="53" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="54" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="54" mi="0" ci="1" mb="0" cb="0" />
       <line nr="55" mi="0" ci="2" mb="0" cb="0" />
       <line nr="56" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="58" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="57" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="59" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="1" covered="26" />
       <counter type="LINE" missed="1" covered="18" />
       <counter type="METHOD" missed="0" covered="1" />
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Telemetry/Select-WtcgTelemetryEvent.ps1">
-      <line nr="14" mi="0" ci="2" mb="0" cb="0" />
       <line nr="15" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="16" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="16" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="17" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="0" covered="5" />
       <counter type="LINE" missed="0" covered="3" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -4449,18 +4456,18 @@
       <counter type="CLASS" missed="0" covered="1" />
     </sourcefile>
     <sourcefile name="Telemetry/Test-WtcgTelemetryEventAllowed.ps1">
-      <line nr="13" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="14" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="17" mi="0" ci="5" mb="0" cb="0" />
-      <line nr="18" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="19" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="22" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="14" mi="0" ci="2" mb="0" cb="0" />
+      <line nr="15" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="18" mi="0" ci="5" mb="0" cb="0" />
+      <line nr="19" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="20" mi="1" ci="0" mb="0" cb="0" />
       <line nr="23" mi="0" ci="3" mb="0" cb="0" />
       <line nr="24" mi="0" ci="3" mb="0" cb="0" />
-      <line nr="26" mi="0" ci="1" mb="0" cb="0" />
-      <line nr="27" mi="0" ci="2" mb="0" cb="0" />
-      <line nr="28" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="25" mi="0" ci="3" mb="0" cb="0" />
+      <line nr="27" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="28" mi="0" ci="2" mb="0" cb="0" />
       <line nr="29" mi="0" ci="1" mb="0" cb="0" />
+      <line nr="30" mi="0" ci="1" mb="0" cb="0" />
       <counter type="INSTRUCTION" missed="1" covered="23" />
       <counter type="LINE" missed="1" covered="11" />
       <counter type="METHOD" missed="0" covered="1" />
@@ -4480,8 +4487,8 @@
     <counter type="METHOD" missed="1" covered="27" />
     <counter type="CLASS" missed="1" covered="27" />
   </package>
-  <counter type="INSTRUCTION" missed="267" covered="2787" />
-  <counter type="LINE" missed="178" covered="2155" />
+  <counter type="INSTRUCTION" missed="271" covered="2792" />
+  <counter type="LINE" missed="180" covered="2160" />
   <counter type="METHOD" missed="10" covered="113" />
   <counter type="CLASS" missed="10" covered="113" />
 </report>

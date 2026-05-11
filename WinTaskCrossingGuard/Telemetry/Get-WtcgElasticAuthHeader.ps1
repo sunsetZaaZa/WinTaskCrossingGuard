@@ -13,12 +13,12 @@ function Get-WtcgElasticAuthHeader {
         [Parameter()]
         [AllowNull()]
         [AllowEmptyString()]
-        [string] $Username,
+        [string] $BasicUser,
 
         [Parameter()]
         [AllowNull()]
         [AllowEmptyString()]
-        [string] $Password
+        [string] $BasicSecret
     )
 
     switch ($AuthType) {
@@ -31,8 +31,8 @@ function Get-WtcgElasticAuthHeader {
             return @{ Authorization = "Bearer $ApiKey" }
         }
         'Basic' {
-            if ([string]::IsNullOrWhiteSpace($Username) -or [string]::IsNullOrWhiteSpace($Password)) { return @{} }
-            $bytes = [System.Text.Encoding]::UTF8.GetBytes("${Username}:${Password}")
+            if ([string]::IsNullOrWhiteSpace($BasicUser) -or [string]::IsNullOrWhiteSpace($BasicSecret)) { return @{} }
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes("${BasicUser}:${BasicSecret}")
             return @{ Authorization = ('Basic ' + [Convert]::ToBase64String($bytes)) }
         }
         default { return @{} }

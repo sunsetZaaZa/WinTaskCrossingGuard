@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WinTaskCrossingGuardDisableLog createdAt="2026-05-11T08:24:37.1397415-05:00" createdLocal="2026-05-11 08:24:37 -05:00" operation="DisableTasksInWindowAndScheduleReenable" runId="wtcg-20260511-082437-e6404f010914">
+  <RunFolderPath>L:\github_repos\WinTaskCrossingGuard\WinTaskCrossingGuard\runs\wtcg-20260511-082437-e6404f010914</RunFolderPath>
+  <Window>
+    <Start>2030-01-02T08:00:00.0000000</Start>
+    <End>2030-01-02T17:00:00.0000000</End>
+  </Window>
+  <ReenableAt>2030-01-03T06:30:00.0000000</ReenableAt>
+  <IdentityOutputPath>C:\Users\vcucc\AppData\Local\Temp\9dd58da4-daaf-4bdc-91dd-edc10cc92c5b\identities.json</IdentityOutputPath>
+  <ReenableTaskFullName>\WinTaskCrossingGuard\ReenableDisabledTasks</ReenableTaskFullName>
+  <Tasks count="1">
+    <Task>
+      <TaskPath>\Root\</TaskPath>
+      <TaskName>InWindow</TaskName>
+      <FullName>\Root\InWindow</FullName>
+      <StateAtDiscovery>Ready</StateAtDiscovery>
+      <NextRunTime>2030-01-02T12:00:00.0000000</NextRunTime>
+      <Action>Disabled</Action>
+      <LoggedAt>2026-05-11T08:24:37.1412396-05:00</LoggedAt>
+    </Task>
+  </Tasks>
+</WinTaskCrossingGuardDisableLog>

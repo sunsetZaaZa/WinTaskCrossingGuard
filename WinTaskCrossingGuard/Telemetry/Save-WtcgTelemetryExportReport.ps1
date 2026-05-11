@@ -1,4 +1,5 @@
 function Save-WtcgTelemetryExportReport {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'This helper is called by orchestration commands that own WhatIf/Confirm behavior or builds non-destructive in-memory output.')]
     [CmdletBinding()]
     param(
         [Parameter()]
@@ -53,7 +54,7 @@ function Save-WtcgTelemetryExportReport {
         JsonlPath     = $JsonlPath
         CreatedAt     = (Get-Date).ToString('o')
         Results       = @($Results)
-    } | ConvertTo-Json -Depth 20 | Set-Content -Path $Path -Encoding utf8 -WhatIf:$false
+    } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $Path -Encoding utf8 -WhatIf:$false
 
     Get-Item -LiteralPath $Path
 }

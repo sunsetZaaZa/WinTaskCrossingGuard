@@ -1,4 +1,5 @@
 function Save-WtcgRunReport {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'This helper is called by orchestration commands that own WhatIf/Confirm behavior or builds non-destructive in-memory output.')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -46,7 +47,7 @@ function Save-WtcgRunReport {
         Status        = $Status
         CreatedAt     = (Get-Date).ToString('o')
         Details       = if ($null -ne $Details) { $Details } else { [ordered]@{} }
-    } | ConvertTo-Json -Depth 20 | Set-Content -Path $resolvedPath -Encoding utf8 -WhatIf:$false
+    } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $resolvedPath -Encoding utf8 -WhatIf:$false
 
     Get-Item -LiteralPath $resolvedPath
 }

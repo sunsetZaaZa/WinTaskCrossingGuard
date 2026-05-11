@@ -1,0 +1,20 @@
+{
+  "Kind": "WinTaskCrossingGuard.RunReport",
+  "Version": 1,
+  "RunId": "wtcg-20260511-082508-11074413642e",
+  "RunFolderPath": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082508-11074413642e",
+  "Operation": "DisableTasksInWindowAndScheduleReenable",
+  "Status": "succeeded",
+  "CreatedAt": "2026-05-11T08:25:08.8099356-05:00",
+  "Details": {
+    "matchedTaskCount": 1,
+    "disabledTaskCount": 0,
+    "windowStart": "2030-01-02T08:00:00.0000000",
+    "windowEnd": "2030-01-02T17:00:00.0000000",
+    "reenableAt": "2030-01-03T06:30:00.0000000",
+    "identityOutputPath": "C:\\Users\\vcucc\\AppData\\Local\\Temp\\d5174130-d43c-4adf-a1e3-67e423b2b2bd\\identities.json",
+    "xmlLogPath": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082508-11074413642e\\logs\\disabled-tasks.xml",
+    "jsonlLogPath": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082508-11074413642e\\streamablelogs\\wintaskcrossingguard-events.jsonl",
+    "reenableTaskFullName": "\\WinTaskCrossingGuard\\ReenableDisabledTasks"
+  }
+}

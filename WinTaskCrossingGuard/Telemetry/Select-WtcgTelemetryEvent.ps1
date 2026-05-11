@@ -2,8 +2,9 @@ function Select-WtcgTelemetryEvent {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]
+        [Alias('Event')]
         [AllowNull()]
-        [object[]] $Event,
+        [object[]] $InputEvent,
 
         [Parameter()]
         [AllowNull()]
@@ -11,8 +12,8 @@ function Select-WtcgTelemetryEvent {
     )
 
     process {
-        foreach ($entry in @($Event)) {
-            if ($null -ne $entry -and (Test-WtcgTelemetryEventAllowed -Event $entry -AllowedEvents $AllowedEvents)) {
+        foreach ($entry in @($InputEvent)) {
+            if ($null -ne $entry -and (Test-WtcgTelemetryEventAllowed -InputEvent $entry -AllowedEvents $AllowedEvents)) {
                 $entry
             }
         }

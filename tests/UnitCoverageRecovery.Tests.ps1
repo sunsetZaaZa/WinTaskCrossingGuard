@@ -222,7 +222,7 @@ WTCG_GENERIC_HTTP_CONTENT_TYPE=
         InModuleScope WinTaskCrossingGuard {
             (Get-WtcgElasticAuthHeader -AuthType ApiKey -ApiKey '').Count | Should -Be 0
             (Get-WtcgElasticAuthHeader -AuthType Bearer -ApiKey 'token')['Authorization'] | Should -Be 'Bearer token'
-            (Get-WtcgElasticAuthHeader -AuthType Basic -Username 'user' -Password 'pass')['Authorization'] | Should -Be 'Basic dXNlcjpwYXNz'
+            (Get-WtcgElasticAuthHeader -AuthType Basic -BasicUser 'user' -BasicSecret 'pass')['Authorization'] | Should -Be 'Basic dXNlcjpwYXNz'
             (Get-WtcgElasticAuthHeader -AuthType None).Count | Should -Be 0
         }
     }

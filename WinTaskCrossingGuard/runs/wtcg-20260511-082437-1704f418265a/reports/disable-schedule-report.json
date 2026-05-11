@@ -1,0 +1,15 @@
+{
+  "Kind": "WinTaskCrossingGuard.RunReport",
+  "Version": 1,
+  "RunId": "wtcg-20260511-082437-1704f418265a",
+  "RunFolderPath": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082437-1704f418265a",
+  "Operation": "DisableTasksInWindowAndScheduleReenable",
+  "Status": "no-matching-tasks",
+  "CreatedAt": "2026-05-11T08:24:37.3064539-05:00",
+  "Details": {
+    "windowStart": "2030-01-02T08:00:00.0000000",
+    "windowEnd": "2030-01-02T17:00:00.0000000",
+    "reenableAt": "2030-01-03T06:30:00.0000000",
+    "selectionSource": null
+  }
+}
