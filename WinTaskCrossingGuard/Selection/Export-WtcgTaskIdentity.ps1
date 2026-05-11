@@ -1,4 +1,5 @@
 function Export-WtcgTaskIdentity {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'This helper is called by orchestration commands that own WhatIf/Confirm behavior or builds non-destructive in-memory output.')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory, ValueFromPipeline)]
@@ -62,7 +63,7 @@ function Export-WtcgTaskIdentity {
 
         $payload |
             ConvertTo-Json -Depth 8 |
-            Set-Content -Path $Path -Encoding utf8 -WhatIf:$false
+            Set-Content -LiteralPath $Path -Encoding utf8 -WhatIf:$false
 
         Get-Item -Path $Path
     }

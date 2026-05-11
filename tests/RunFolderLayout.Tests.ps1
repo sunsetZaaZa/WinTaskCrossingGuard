@@ -131,9 +131,9 @@ Describe 'Central run folder and run ID' {
                 -RunId $context.RunId `
                 -RunFolderPath $context.RunFolderPath |
                 Out-Null
-            $event = Get-Content -LiteralPath $jsonlPath -Raw | ConvertFrom-Json
-            $event.runId | Should -Be $context.RunId
-            $event.runFolderPath | Should -Be $context.RunFolderPath
+            $capturedEvent = Get-Content -LiteralPath $jsonlPath -Raw | ConvertFrom-Json
+            $capturedEvent.runId | Should -Be $context.RunId
+            $capturedEvent.runFolderPath | Should -Be $context.RunFolderPath
         }
     }
 }

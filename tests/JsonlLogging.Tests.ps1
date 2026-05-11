@@ -76,17 +76,17 @@ Describe 'SIEM-friendly JSONL logging' {
             $lines = @(Get-Content -Path $path)
             $lines.Count | Should -Be 2
 
-            $events = @($lines | ForEach-Object { $_ | ConvertFrom-Json })
-            $events[0].schemaVersion | Should -Be '1.0'
-            $events[0].source | Should -Be 'WinTaskCrossingGuard'
-            $events[0].action | Should -Be 'disable'
-            $events[0].status | Should -Be 'succeeded'
-            $events[0].operation | Should -Be 'PesterDisable'
-            $events[0].details.taskPath | Should -Be '\Root\'
-            $events[0].details.taskName | Should -Be 'TaskA'
-            $events[0].details.fullName | Should -Be '\Root\TaskA'
-            $events[0].details.identityOutputPath | Should -Be 'C:\manifest.json'
-            $events[1].details.fullName | Should -Be '\Root\Nested\TaskB'
+            $capturedEvents = @($lines | ForEach-Object { $_ | ConvertFrom-Json })
+            $capturedEvents[0].schemaVersion | Should -Be '1.0'
+            $capturedEvents[0].source | Should -Be 'WinTaskCrossingGuard'
+            $capturedEvents[0].action | Should -Be 'disable'
+            $capturedEvents[0].status | Should -Be 'succeeded'
+            $capturedEvents[0].operation | Should -Be 'PesterDisable'
+            $capturedEvents[0].details.taskPath | Should -Be '\Root\'
+            $capturedEvents[0].details.taskName | Should -Be 'TaskA'
+            $capturedEvents[0].details.fullName | Should -Be '\Root\TaskA'
+            $capturedEvents[0].details.identityOutputPath | Should -Be 'C:\manifest.json'
+            $capturedEvents[1].details.fullName | Should -Be '\Root\Nested\TaskB'
         }
     }
 
@@ -104,13 +104,13 @@ Describe 'SIEM-friendly JSONL logging' {
                 -Operation 'PesterReenable'
 
             $file.Exists | Should -BeTrue
-            $event = Get-Content -Path $path -Raw | ConvertFrom-Json
+            $capturedEvent = Get-Content -Path $path -Raw | ConvertFrom-Json
 
-            $event.action | Should -Be 're-enable'
-            $event.status | Should -Be 'succeeded'
-            $event.operation | Should -Be 'PesterReenable'
-            $event.details.fullName | Should -Be '\Root\TaskA'
-            $event.details.manifestPath | Should -Be 'C:\manifest.json'
+            $capturedEvent.action | Should -Be 're-enable'
+            $capturedEvent.status | Should -Be 'succeeded'
+            $capturedEvent.operation | Should -Be 'PesterReenable'
+            $capturedEvent.details.fullName | Should -Be '\Root\TaskA'
+            $capturedEvent.details.manifestPath | Should -Be 'C:\manifest.json'
         }
     }
 
@@ -131,13 +131,13 @@ Describe 'SIEM-friendly JSONL logging' {
             }
 
             $file.Exists | Should -BeTrue
-            $event = Get-Content -Path $path -Raw | ConvertFrom-Json
+            $capturedEvent = Get-Content -Path $path -Raw | ConvertFrom-Json
 
-            $event.action | Should -Be 'error'
-            $event.status | Should -Be 'failed'
-            $event.operation | Should -Be 'PesterError'
-            $event.details.message | Should -Match 'pester jsonl boom'
-            $event.details.selectionSource | Should -Be 'C:\selection.json'
+            $capturedEvent.action | Should -Be 'error'
+            $capturedEvent.status | Should -Be 'failed'
+            $capturedEvent.operation | Should -Be 'PesterError'
+            $capturedEvent.details.message | Should -Match 'pester jsonl boom'
+            $capturedEvent.details.selectionSource | Should -Be 'C:\selection.json'
         }
     }
 
@@ -157,14 +157,14 @@ Describe 'SIEM-friendly JSONL logging' {
                 -IdentityOutputPath 'C:\manifest.json'
 
             $file.Exists | Should -BeTrue
-            $event = Get-Content -Path $path -Raw | ConvertFrom-Json
+            $capturedEvent = Get-Content -Path $path -Raw | ConvertFrom-Json
 
-            $event.action | Should -Be 'notification'
-            $event.status | Should -Be 'sent'
-            $event.operation | Should -Be 'PesterNotify'
-            $event.details.channel | Should -Be 'email'
-            $event.details.to | Should -Contain 'ops@example.com'
-            $event.details.smtpServer | Should -Be 'mail.example.com'
+            $capturedEvent.action | Should -Be 'notification'
+            $capturedEvent.status | Should -Be 'sent'
+            $capturedEvent.operation | Should -Be 'PesterNotify'
+            $capturedEvent.details.channel | Should -Be 'email'
+            $capturedEvent.details.to | Should -Contain 'ops@example.com'
+            $capturedEvent.details.smtpServer | Should -Be 'mail.example.com'
         }
     }
 

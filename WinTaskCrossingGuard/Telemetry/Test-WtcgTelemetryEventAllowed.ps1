@@ -2,8 +2,9 @@ function Test-WtcgTelemetryEventAllowed {
     [CmdletBinding()]
     param(
         [Parameter()]
+        [Alias('Event')]
         [AllowNull()]
-        [object] $Event,
+        [object] $InputEvent,
 
         [Parameter()]
         [AllowNull()]
@@ -19,9 +20,9 @@ function Test-WtcgTelemetryEventAllowed {
         return $true
     }
 
-    $action = ([string](Get-WtcgObjectPropertyValue -InputObject $Event -Name 'action' -DefaultValue '')).ToLowerInvariant()
-    $status = ([string](Get-WtcgObjectPropertyValue -InputObject $Event -Name 'status' -DefaultValue '')).ToLowerInvariant()
-    $operation = ([string](Get-WtcgObjectPropertyValue -InputObject $Event -Name 'operation' -DefaultValue '')).ToLowerInvariant()
+    $action = ([string](Get-WtcgObjectPropertyValue -InputObject $InputEvent -Name 'action' -DefaultValue '')).ToLowerInvariant()
+    $status = ([string](Get-WtcgObjectPropertyValue -InputObject $InputEvent -Name 'status' -DefaultValue '')).ToLowerInvariant()
+    $operation = ([string](Get-WtcgObjectPropertyValue -InputObject $InputEvent -Name 'operation' -DefaultValue '')).ToLowerInvariant()
 
     return (
         (-not [string]::IsNullOrWhiteSpace($action) -and $normalizedAllowedEvents -contains $action) -or

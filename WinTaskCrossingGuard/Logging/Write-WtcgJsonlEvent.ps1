@@ -1,8 +1,10 @@
 function Write-WtcgJsonlEvent {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'This helper is called by orchestration commands that own WhatIf/Confirm behavior or builds non-destructive in-memory output.')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory, ValueFromPipeline)]
-        [object[]] $Event,
+        [Alias('Event')]
+        [object[]] $JsonlEvent,
 
         [Parameter()]
         [AllowNull()]
@@ -15,7 +17,7 @@ function Write-WtcgJsonlEvent {
     }
 
     process {
-        foreach ($entry in $Event) {
+        foreach ($entry in $JsonlEvent) {
             if ($null -ne $entry) {
                 $items.Add($entry)
             }

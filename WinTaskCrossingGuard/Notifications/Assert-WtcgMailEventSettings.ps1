@@ -25,9 +25,9 @@ function Assert-WtcgMailEventSettings {
         ([string]$entryEvent).Trim().ToLowerInvariant()
     }
 
-    foreach ($event in $events) {
-        if ($event -notin @('result', 'error')) {
-            throw "Invalid mail configuration: unsupported mail event '$event'. Required values are 'result' and 'error'."
+    foreach ($mailEvent in $events) {
+        if ($mailEvent -notin @('result', 'error')) {
+            throw "Invalid mail configuration: unsupported mail event '$mailEvent'. Required values are 'result' and 'error'."
         }
     }
 

@@ -1,0 +1,20 @@
+{
+  "Kind": "WinTaskCrossingGuard.RunInfo",
+  "Version": 1,
+  "RunId": "wtcg-20260511-082507-c9e525a7b83b",
+  "RunFolderPath": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082507-c9e525a7b83b",
+  "Operation": "DisableTasksInWindowAndScheduleReenable",
+  "CreatedAt": "2026-05-11T08:25:07.6078850-05:00",
+  "CreatedAtUtc": "2026-05-11T13:25:07.6078850Z",
+  "HostName": "FISHBALLOON",
+  "UserName": "vcucc",
+  "ProcessId": 20048,
+  "Folders": {
+    "logs": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082507-c9e525a7b83b\\logs",
+    "streamablelogs": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082507-c9e525a7b83b\\streamablelogs",
+    "manifests": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082507-c9e525a7b83b\\manifests",
+    "identities": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082507-c9e525a7b83b\\identities",
+    "reports": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082507-c9e525a7b83b\\reports",
+    "errors": "L:\\github_repos\\WinTaskCrossingGuard\\WinTaskCrossingGuard\\runs\\wtcg-20260511-082507-c9e525a7b83b\\errors"
+  }
+}

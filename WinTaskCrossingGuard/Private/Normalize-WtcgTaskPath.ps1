@@ -1,4 +1,5 @@
 function Normalize-WtcgTaskPath {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '', Justification = 'Private legacy helper name retained because existing internal tests and scripts call it directly.')]
     [CmdletBinding()]
     param(
         [Parameter()]

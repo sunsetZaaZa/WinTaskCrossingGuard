@@ -19,15 +19,21 @@ function ConvertTo-WtcgWebhookTargetSettings {
     )
 
     $providerToken = $Provider.ToUpperInvariant()
-    $url = [string](Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_URL" -Default '')
-    $enabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_ENABLED" -Default $false) -Default $false
-    $events = ConvertTo-WtcgStringList -Value (Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_EVENTS" -Default 'result,error') -Default @('result', 'error')
-    $failOnError = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_FAIL_ON_ERROR" -Default $DefaultFailOnError) -Default $DefaultFailOnError
+    $urlName = 'WTCG_WEBHOOK_{0}_URL' -f $providerToken
+    $enabledName = 'WTCG_WEBHOOK_{0}_ENABLED' -f $providerToken
+    $eventsName = 'WTCG_WEBHOOK_{0}_EVENTS' -f $providerToken
+    $failOnErrorName = 'WTCG_WEBHOOK_{0}_FAIL_ON_ERROR' -f $providerToken
+    $timeoutName = 'WTCG_WEBHOOK_{0}_TIMEOUT_SECONDS' -f $providerToken
+
+    $url = [string](Get-WtcgEnvValue -Values $EnvValues -Name $urlName -Default '')
+    $enabled = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $EnvValues -Name $enabledName -Default $false) -Default $false
+    $events = ConvertTo-WtcgStringList -Value (Get-WtcgEnvValue -Values $EnvValues -Name $eventsName -Default 'result,error') -Default @('result', 'error')
+    $failOnError = ConvertTo-WtcgBoolean -Value (Get-WtcgEnvValue -Values $EnvValues -Name $failOnErrorName -Default $DefaultFailOnError) -Default $DefaultFailOnError
 
     $timeoutSeconds = $DefaultTimeoutSeconds
-    $rawTimeout = Get-WtcgEnvValue -Values $EnvValues -Name "WTCG_WEBHOOK_${providerToken}_TIMEOUT_SECONDS" -Default $DefaultTimeoutSeconds
+    $rawTimeout = Get-WtcgEnvValue -Values $EnvValues -Name $timeoutName -Default $DefaultTimeoutSeconds
     if (-not [int]::TryParse([string]$rawTimeout, [ref]$timeoutSeconds) -or $timeoutSeconds -le 0) {
-        throw "Invalid WTCG_WEBHOOK_${providerToken}_TIMEOUT_SECONDS value '$rawTimeout'. Expected a positive whole number."
+        throw "Invalid $timeoutName value '$rawTimeout'. Expected a positive whole number."
     }
 
     [pscustomobject]@{

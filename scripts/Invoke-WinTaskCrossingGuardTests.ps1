@@ -3,6 +3,7 @@
 [CmdletBinding()]
 param(
     [Parameter()]
+    [Alias('InstallDependencies')]
     [switch] $InstallPester,
 
     [Parameter()]
@@ -12,7 +13,7 @@ param(
     [switch] $OpenReport,
 
     [Parameter()]
-    [string] $OutputDirectory = (Join-Path $PSScriptRoot '..\TestResults'),
+    [string] $OutputDirectory = (Join-Path -Path $PSScriptRoot -ChildPath '..\TestResults'),
 
     [Parameter()]
     [double] $MinimumCoveragePercent = 90
@@ -22,7 +23,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 if ($InstallPester) {
-    & (Join-Path $PSScriptRoot 'Install-ProjectPester.ps1') `
+    $installProjectPesterScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'Install-ProjectPester.ps1'
+
+    & $installProjectPesterScriptPath `
         -RequiredVersion $RequiredPesterVersion `
         -Scope CurrentUser `
         -Force `
@@ -34,15 +37,15 @@ Import-Module Pester -MinimumVersion $RequiredPesterVersion -ErrorAction Stop
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
 $config = New-PesterConfiguration
-$config.Run.Path = @((Join-Path $PSScriptRoot '..\tests'))
+$config.Run.Path = @((Join-Path -Path $PSScriptRoot -ChildPath '..\tests'))
 $config.Run.PassThru = $true
 $config.Output.Verbosity = 'Detailed'
 
 $config.CodeCoverage.Enabled = $true
-$moduleSourceRoot = Join-Path $PSScriptRoot '..\WinTaskCrossingGuard'
+$moduleSourceRoot = Join-Path -Path $PSScriptRoot -ChildPath '..\WinTaskCrossingGuard'
 $moduleSourceFiles = @(
-    Join-Path $moduleSourceRoot 'WinTaskCrossingGuard.psm1'
-    Join-Path $moduleSourceRoot 'Load-WinTaskCrossingGuardInternal.ps1'
+    (Join-Path -Path $moduleSourceRoot -ChildPath 'WinTaskCrossingGuard.psm1')
+    (Join-Path -Path $moduleSourceRoot -ChildPath 'Load-WinTaskCrossingGuardInternal.ps1')
 ) + @(
     Get-ChildItem -LiteralPath $moduleSourceRoot -Directory |
         Where-Object {
@@ -66,11 +69,11 @@ $moduleSourceFiles = @(
 
 $config.CodeCoverage.Path = $moduleSourceFiles
 $config.CodeCoverage.OutputFormat = 'JaCoCo'
-$config.CodeCoverage.OutputPath = Join-Path $OutputDirectory 'coverage.xml'
+$config.CodeCoverage.OutputPath = Join-Path -Path $OutputDirectory -ChildPath 'coverage.xml'
 
 $config.TestResult.Enabled = $true
 $config.TestResult.OutputFormat = 'NUnitXml'
-$config.TestResult.OutputPath = Join-Path $OutputDirectory 'pester-results.xml'
+$config.TestResult.OutputPath = Join-Path -Path $OutputDirectory -ChildPath 'pester-results.xml'
 
 $result = Invoke-Pester -Configuration $config
 

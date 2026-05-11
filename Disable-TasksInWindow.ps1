@@ -1,4 +1,5 @@
 #requires -Version 7.0
 
-& (Join-Path $PSScriptRoot 'scripts\Disable-TasksInWindow.ps1') @args
+$scriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'scripts\Disable-TasksInWindow.ps1'
+& $scriptPath @args
 exit $LASTEXITCODE

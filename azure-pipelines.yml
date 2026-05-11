@@ -31,6 +31,14 @@ stages:
                 $PSVersionTable
 
           - task: PowerShell@2
+            displayName: Run PSScriptAnalyzer
+            inputs:
+              pwsh: true
+              targetType: inline
+              script: |
+                ./Invoke-WinTaskCrossingGuardAnalyzer.ps1 -InstallAnalyzer
+
+          - task: PowerShell@2
             displayName: Install or update project Pester version
             inputs:
               pwsh: true
@@ -62,6 +70,7 @@ stages:
             displayName: Publish test artifacts
             condition: always()
             inputs:
+              # Contains pester-results.xml, coverage.xml, scriptanalyzer-results.json, and scriptanalyzer-results.csv.
               targetPath: TestResults
               artifact: WinTaskCrossingGuard-TestResults
               publishLocation: pipeline

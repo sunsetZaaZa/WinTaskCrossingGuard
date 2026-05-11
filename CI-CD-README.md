@@ -6,10 +6,23 @@ This suite includes pipeline definitions for:
 - GitLab CI/CD: `.gitlab-ci.yml`
 - Azure DevOps Pipelines: `azure-pipelines.yml`
 
-All three use PowerShell 7 on Windows, install/update the project-required Pester version, then run:
+All three use PowerShell 7 on Windows, run PSScriptAnalyzer, install/update the project-required Pester version, then run:
 
 ```powershell
+./Invoke-WinTaskCrossingGuardAnalyzer.ps1 -InstallAnalyzer
 ./Invoke-WinTaskCrossingGuardTests.ps1 -MinimumCoveragePercent 90
+```
+
+
+## Static analysis gate
+
+`Invoke-WinTaskCrossingGuardAnalyzer.ps1` installs PSScriptAnalyzer when `-InstallAnalyzer` is supplied, loads `PSScriptAnalyzerSettings.psd1`, and scans the module, repository scripts, and tests. The analyzer writes JSON and CSV reports for both `Error` and `Warning` findings, prints severity/rule summaries to the CI log, and fails the gate only for severities listed in `-FailOnSeverity` (default: `Error`). Warnings are kept visible as cleanup debt without blocking Pester coverage while the project carries an analyzer baseline.
+
+Analyzer artifacts are published with the test artifacts:
+
+```text
+TestResults/scriptanalyzer-results.json
+TestResults/scriptanalyzer-results.csv
 ```
 
 ## GitLab runner note

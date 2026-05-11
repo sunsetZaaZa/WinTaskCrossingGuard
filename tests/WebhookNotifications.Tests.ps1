@@ -113,12 +113,12 @@ WTCG_WEBHOOK_DISCORD_EVENTS=result
 
             Should -Invoke Invoke-WtcgWebhookRestMethod -Times 2
 
-            $events = @(Get-Content -Path $jsonlPath | ForEach-Object { $_ | ConvertFrom-Json })
-            $events.Count | Should -Be 2
-            $events.action | Should -Contain 'notification'
-            $events.details.channel | Should -Contain 'webhook:teams'
-            $events.details.channel | Should -Contain 'webhook:discord'
-            $events.runId | Should -Contain 'wtcg-pester'
+            $capturedEvents = @(Get-Content -Path $jsonlPath | ForEach-Object { $_ | ConvertFrom-Json })
+            $capturedEvents.Count | Should -Be 2
+            $capturedEvents.action | Should -Contain 'notification'
+            $capturedEvents.details.channel | Should -Contain 'webhook:teams'
+            $capturedEvents.details.channel | Should -Contain 'webhook:discord'
+            $capturedEvents.runId | Should -Contain 'wtcg-pester'
         }
     }
 

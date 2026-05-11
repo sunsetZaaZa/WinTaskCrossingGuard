@@ -11,6 +11,9 @@ pester:
 
   script:
     - >
+      pwsh -NoProfile -ExecutionPolicy Bypass -File .\Invoke-WinTaskCrossingGuardAnalyzer.ps1
+      -InstallAnalyzer
+    - >
       pwsh -NoProfile -ExecutionPolicy Bypass -File .\Install-ProjectPester.ps1
       -RequiredVersion 5.0.0
       -Scope CurrentUser
@@ -24,6 +27,8 @@ pester:
     paths:
       - TestResults/pester-results.xml
       - TestResults/coverage.xml
+      - TestResults/scriptanalyzer-results.json
+      - TestResults/scriptanalyzer-results.csv
     reports:
       junit: TestResults/pester-results.xml
     expire_in: 14 days

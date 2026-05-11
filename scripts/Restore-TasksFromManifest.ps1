@@ -188,10 +188,11 @@ $reportFile = Save-WtcgRunReport `
     })
 Write-Host "Run report written to: $($reportFile.FullName)"
 
-$telemetryExportResult = Invoke-WtcgTelemetryExportForJsonl `
+Invoke-WtcgTelemetryExportForJsonl `
     -JsonlPath $JsonlLogPath `
     -RunContext $runContext `
-    -Operation 'RestoreTasksFromManifest'
+    -Operation 'RestoreTasksFromManifest' |
+    Out-Null
 
 if ($PassThru) {
     $restored

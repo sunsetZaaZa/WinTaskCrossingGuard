@@ -49,12 +49,16 @@ function Get-WtcgActivePriorReenableRun {
     try {
         & $addCandidate (Get-ScheduledTask -TaskPath $normalizedReenableTaskPath -TaskName $ReenableTaskName -ErrorAction SilentlyContinue)
     }
-    catch { }
+    catch {
+        Write-Verbose "Unable to query candidate re-enable scheduled task: $($_.Exception.Message)"
+    }
 
     try {
         & $addCandidate (Get-ScheduledTask -TaskPath $normalizedReenableTaskPath -ErrorAction SilentlyContinue)
     }
-    catch { }
+    catch {
+        Write-Verbose "Unable to enumerate re-enable scheduled tasks: $($_.Exception.Message)"
+    }
 
     $newActiveStart = $WindowStart
     $newActiveEnd = $ReenableAt

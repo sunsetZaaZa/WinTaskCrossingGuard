@@ -406,10 +406,11 @@ $reportFile = Save-WtcgRunReport `
     })
 Write-Host "Run report written to: $($reportFile.FullName)"
 
-$telemetryExportResult = Invoke-WtcgTelemetryExportForJsonl `
+Invoke-WtcgTelemetryExportForJsonl `
     -JsonlPath $effectiveJsonlLogPath `
     -RunContext $runContext `
-    -Operation 'DisableTasksInWindow'
+    -Operation 'DisableTasksInWindow' |
+    Out-Null
 
 Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'logs') -WhatIf:$WhatIfPreference
 Clear-WtcgOldLogs -EnvPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.env') -LogsPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'streamablelogs') -Filter '*.jsonl' -WhatIf:$WhatIfPreference

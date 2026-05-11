@@ -1,4 +1,5 @@
 function Save-WtcgManifest {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'This helper is called by orchestration commands that own WhatIf/Confirm behavior or builds non-destructive in-memory output.')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory, ValueFromPipeline)]
@@ -73,7 +74,7 @@ function Save-WtcgManifest {
 
         $manifest |
             ConvertTo-Json -Depth 10 |
-            Set-Content -Path $Path -Encoding utf8 -WhatIf:$false
+            Set-Content -LiteralPath $Path -Encoding utf8 -WhatIf:$false
 
         Get-Item -Path $Path
     }

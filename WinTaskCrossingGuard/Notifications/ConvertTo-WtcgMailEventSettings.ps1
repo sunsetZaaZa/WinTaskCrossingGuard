@@ -33,10 +33,10 @@ function ConvertTo-WtcgMailEventSettings {
     $errorReport = $disabled
 
     foreach ($entry in $entries) {
-        $event = ([string](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'event')).Trim().ToLowerInvariant()
+        $mailEvent = ([string](Get-WtcgObjectPropertyValue -InputObject $entry -Name 'event')).Trim().ToLowerInvariant()
         $settings = ConvertTo-WtcgMailSettings -Mail $entry
 
-        switch ($event) {
+        switch ($mailEvent) {
             'result' {
                 $result = $settings
                 break

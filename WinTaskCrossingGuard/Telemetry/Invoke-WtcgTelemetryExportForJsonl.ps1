@@ -87,7 +87,7 @@ function Invoke-WtcgTelemetryExportForJsonl {
             }
             else {
                 $elasticUri = Resolve-WtcgElasticBulkUri -Uri $settings.Elasticsearch.Uri
-                $headers = Get-WtcgElasticAuthHeader -AuthType $settings.Elasticsearch.AuthType -ApiKey $settings.Elasticsearch.ApiKey -Username $settings.Elasticsearch.Username -Password $settings.Elasticsearch.Password
+                $headers = Get-WtcgElasticAuthHeader -AuthType $settings.Elasticsearch.AuthType -ApiKey $settings.Elasticsearch.ApiKey -BasicUser $settings.Elasticsearch.Username -BasicSecret $settings.Elasticsearch.Password
                 $body = $events | ConvertTo-WtcgElasticBulkPayload -Index $settings.Elasticsearch.Index -DataStream:$settings.Elasticsearch.DataStream
                 $sendResult = Send-WtcgGenericHttpPayload `
                     -Uri $elasticUri `
