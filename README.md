@@ -520,6 +520,10 @@ Scheduled re-enable workflows pass the generated JSONL path, `-RunId`, and `-Run
 
 
 
+## Observability roadmap
+
+See [`docs/observability.md`](docs/observability.md) for the log-vs-metric-vs-dashboard contract, recommended Loki/VictoriaMetrics/Thanos/Grafana topology, cardinality rules, and the planned observability PR sequence. Example topology notes live in [`examples/observability/README.md`](examples/observability/README.md).
+
 ## Telemetry export: secure Elastic/OpenSearch and generic HTTP examples
 
 Telemetry export uses the local JSONL stream as the source of truth. Workflow operations write JSONL first, then export matching events to configured telemetry sinks. Export results are written back into the central run folder:
